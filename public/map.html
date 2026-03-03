@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NAVTRACK — Global Ship Tracker</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>⚓</text></svg>"/>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<!-- Marker Cluster CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css"/>
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;500;700&display=swap" rel="stylesheet"/>
+
+<style>
+/* ── Reset & Base ────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #04080f;
+  --ocean:    #06111e;
+  --panel:    rgba(4, 14, 28, 0.93);
+  --border:   rgba(0, 190, 255, 0.14);
+  --glow:     rgba(0, 190, 255, 0.07);
+  --accent:   #00bfff;
+  --green:    #00e5a0;
+  --warn:     #ff5e3a;
+  --amber:    #ffaa00;
+  --text:     #a8cce0;
+  --dim:      #3d607a;
+  --mono:     'Share Tech Mono', monospace;
+  --sans:     'Barlow', sans-serif;
+
+  /* ship type colors */
+  --c-cargo:     #2f9cff;
+  --c-tanker:    #ff4060;
+  --c-passenger: #00e5a0;
+  --c-fishing:   #ffaa00;
+  --c-tug:       #c084fc;
+  --c-sailing:   #ffd700;
+  --c-military:  #ff3b6b;
+  --c-highspeed: #00f0ff;
+  --c-pleasure:  #f472b6;
+  --c-unknown:   #6688aa;
+}
+
+html, body {
+  height: 100%; width: 100%;
+  background: var(--bg);
+  font-family: var(--sans);
+  overflow: hidden;
+  color: var(--text);
+}
+
+/* ── Map ────────────────────────────────────────────────────────────────── */
+#map {
+  position: absolute; inset: 0;
+  z-index: 0;
+}
+
+/* Darken + tint tiles to match ocean theme */
+.leaflet-tile-pane {
+  filter: brightness(0.55) saturate(0.5) hue-rotate(185deg);
+}
+
+/* Scanline overlay */
+#map::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px, transparent 3px,
+    rgba(0,200,255,0.012) 3px, rgba(0,200,255,0.012) 4px
+  );
+  pointer-events: none;
+  z-index: 800;
+}
+
+/* ── Shared panel style ─────────────────────────────────────────────────── */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 0 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(0,190,255,0.06);
+}
+
+/* ── Left HUD ───────────────────────────────────────────────────────────── */
+#hud {
+  position: absolute;
+  top: 16px; left: 16px;
+  z-index: 900;
+  width: 260px;
+}
+
+#hud-title {
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+
+.logo-anchor {
+  font-size: 18px; line-height: 1;
+}
+
+.logo-text {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 3px;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.logo-sub {
+  font-size: 9px;
+  color: var(--dim);
+  letter-spacing: 1px;
+  margin-top: 1px;
+  font-family: var(--mono);
+}
+
+#live-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  margin-left: auto;
+  animation: blink 2.4s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+/* Stats grid */
+#stats {
+  padding: 10px 16px;
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.stat { text-align: center; }
+.stat-num {
+  font-family: var(--mono);
+  font-size: 20px;
+  color: var(--accent);
+  line-height: 1;
+  transition: color 0.3s;
+}
+.stat-num.updated { color: var(--green); }
+.stat-label {
+  font-size: 9px;
+  color: var(--dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+/* Source status */
+#sources {
+  padding: 8px 16px;
+  display: flex; gap: 10px; align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.src {
+  display: flex; align-items: center; gap: 5px;
+  font-family: var(--mono); font-size: 10px;
+  color: var(--dim);
+  flex: 1; justify-content: center;
+}
+.src-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--dim);
+  transition: background 0.4s, box-shadow 0.4s;
+}
+.src.ok  .src-dot { background: var(--green); box-shadow: 0 0 5px var(--green); }
+.src.err .src-dot { background: var(--warn);  box-shadow: 0 0 5px var(--warn); }
+.src.loading .src-dot { background: var(--amber); animation: blink 0.8s infinite; }
+
+.src-label { font-size: 9px; }
+.src-count { font-size: 9px; color: var(--text); }
+
+/* Legend */
+#legend {
+  padding: 8px 16px 12px;
+}
+.leg-title {
+  font-family: var(--mono); font-size: 9px; color: var(--dim);
+  letter-spacing: 2px; text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.leg-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 3px 12px;
+}
+.leg-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px; color: var(--text);
+  cursor: pointer; user-select: none;
+  padding: 2px 0;
+  transition: opacity 0.2s;
+}
+.leg-item:hover { color: #fff; }
+.leg-item.hidden { opacity: 0.25; }
+.leg-swatch {
+  width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0;
+}
+
+/* Refresh bar */
+#refresh-track {
+  height: 2px; background: rgba(0,190,255,0.06);
+  position: relative; overflow: hidden;
+  border-radius: 0 0 4px 4px;
+}
+#refresh-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--green), var(--accent));
+  box-shadow: 0 0 6px var(--accent);
+  transition: width 1s linear;
+}
+
+/* ── Ship info panel ────────────────────────────────────────────────────── */
+#ship-panel {
+  position: absolute;
+  bottom: 24px; right: 16px;
+  z-index: 900;
+  width: 250px;
+  padding: 14px;
+  display: none;
+  animation: rise 0.2s ease;
+}
+@keyframes rise { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+
+#ship-panel h3 {
+  font-size: 14px; font-weight: 700;
+  color: #fff; margin-bottom: 10px;
+  letter-spacing: 0.5px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sp-type-badge {
+  display: inline-block;
+  font-family: var(--mono); font-size: 9px;
+  padding: 2px 7px; border-radius: 20px;
+  margin-bottom: 10px;
+  letter-spacing: 1px; text-transform: uppercase;
+}
+.sp-row {
+  display: flex; justify-content: space-between;
+  font-size: 11px; padding: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-family: var(--mono);
+}
+.sp-row:last-of-type { border-bottom: none; }
+.sp-key { color: var(--dim); }
+.sp-val { color: var(--text); }
+.sp-sources {
+  display: flex; gap: 4px; flex-wrap: wrap;
+  margin-top: 10px;
+}
+.sp-src-tag {
+  font-size: 9px; padding: 2px 7px;
+  border-radius: 3px; font-family: var(--mono);
+  background: rgba(0,190,255,0.08);
+  border: 1px solid rgba(0,190,255,0.2);
+  color: var(--accent); letter-spacing: 1px;
+}
+#ship-close {
+  position: absolute; top: 10px; right: 12px;
+  cursor: pointer; color: var(--dim);
+  font-size: 18px; line-height: 1;
+  transition: color 0.2s;
+}
+#ship-close:hover { color: var(--warn); }
+
+/* ── Top bar ────────────────────────────────────────────────────────────── */
+#topbar {
+  position: absolute;
+  top: 16px;
+  left: 50%; transform: translateX(-50%);
+  z-index: 900;
+  display: flex; align-items: center; gap: 0;
+}
+
+#search-wrap {
+  display: flex; align-items: center; gap: 0;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+#search-input {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: 4px 0 0 4px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 8px 14px;
+  width: 220px;
+  outline: none;
+  backdrop-filter: blur(14px);
+  transition: border-color 0.2s;
+}
+#search-input::placeholder { color: var(--dim); }
+#search-input:focus { border-color: rgba(0,190,255,0.4); }
+
+#search-btn {
+  background: var(--accent);
+  border: none; cursor: pointer;
+  padding: 8px 14px;
+  font-family: var(--mono); font-size: 11px;
+  color: #000; font-weight: 700;
+  border-radius: 0 4px 4px 0;
+  letter-spacing: 1px;
+  transition: background 0.2s;
+}
+#search-btn:hover { background: var(--green); }
+
+/* ── Toast ──────────────────────────────────────────────────────────────── */
+#toast {
+  position: absolute; bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  z-index: 1000;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 18px;
+  font-family: var(--mono); font-size: 11px;
+  color: var(--accent);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s, transform 0.3s;
+  white-space: nowrap;
+}
+#toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ── Cluster style override ─────────────────────────────────────────────── */
+.marker-cluster div {
+  background: rgba(0,190,255,0.15) !important;
+  border: 1px solid rgba(0,190,255,0.35) !important;
+  color: var(--accent) !important;
+  font-family: var(--mono) !important;
+  font-size: 10px !important;
+  font-weight: 400 !important;
+}
+.marker-cluster {
+  background: rgba(0,190,255,0.05) !important;
+  border: 1px solid rgba(0,190,255,0.15) !important;
+}
+
+/* Leaflet zoom control */
+.leaflet-control-zoom a {
+  background: var(--panel) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+  font-family: var(--mono) !important;
+}
+.leaflet-control-zoom a:hover { color: var(--accent) !important; }
+
+/* Attribution */
+.leaflet-control-attribution {
+  background: rgba(4,8,15,0.7) !important;
+  color: var(--dim) !important;
+  font-size: 9px !important;
+}
+.leaflet-control-attribution a { color: var(--dim) !important; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="hud" class="panel">
+  <div id="hud-title">
+    <div class="logo-anchor">⚓</div>
+    <div><div class="logo-text">NAVTRACK</div><div class="logo-sub">GLOBAL AIS OVERLAY</div></div>
+    <div id="live-dot"></div>
+  </div>
+  <div id="stats">
+    <div class="stat"><div class="stat-num" id="s-total">—</div><div class="stat-label">Vessels</div></div>
+    <div class="stat"><div class="stat-num" id="s-zoom">—</div><div class="stat-label">Zoom</div></div>
+    <div class="stat"><div class="stat-num" id="s-next">30</div><div class="stat-label">Refresh</div></div>
+  </div>
+  <div id="sources">
+    <div class="src loading" id="src-ais"><div class="src-dot"></div><div><div class="src-label">AIS</div><div class="src-count" id="cnt-ais">—</div></div></div>
+    <div class="src loading" id="src-mt"><div class="src-dot"></div><div><div class="src-label">MT</div><div class="src-count" id="cnt-mt">—</div></div></div>
+    <div class="src loading" id="src-dl"><div class="src-dot"></div><div><div class="src-label">DL</div><div class="src-count" id="cnt-dl">—</div></div></div>
+  </div>
+  <div id="legend"><div class="leg-title">Vessel Types</div><div class="leg-grid" id="leg-grid">
+      <div class="leg-item" data-type="cargo" onclick="toggleType(this)"><div class="leg-swatch" style="background:var(--c-cargo)"></div>Cargo</div>
+      <div class="leg-item" data-type="tanker" onclick="toggleType(this)"><div class="leg-swatch" style="background:var(--c-tanker)"></div>Tanker</div>
+      <div class="leg-item" data-type="passenger" onclick="toggleType(this)"><div class="leg-swatch" style="background:var(--c-passenger)"></div>Passenger</div>
+      <div class="leg-item" data-type="fishing" onclick="toggleType(this)"><div class="leg-swatch" style="background:var(--c-fishing)"></div>Fishing</div>
+      <div class="leg-item" data-type="tug" onclick="toggleType(this)"><div class="leg-swatch" style="background:var(--c-tug)"></div>Tug</div>
+      <div class="leg-item" data-type="sailing" onclick="toggleType(this)"><div class="leg-swatch" style="background:var(--c-sailing)"></div>Sailing</div>
+      <div class="leg-item" data-type="military" onclick="toggleType(this)"><div class="leg-swatch" style="background:var(--c-military)"></div>Military</div>
+      <div class="leg-item" data-type="highspeed" onclick="toggleType(this)"><div class="leg-swatch" style="background:var(--c-highspeed)"></div>High-Speed</div>
+      <div class="leg-item" data-type="pleasure" onclick="toggleType(this)"><div class="leg-swatch" style="background:var(--c-pleasure)"></div>Pleasure</div>
+      <div class="leg-item" data-type="unknown" onclick="toggleType(this)"><div class="leg-swatch" style="background:var(--c-unknown)"></div>Unknown</div>
+  </div></div>
+  <div id="refresh-track"><div id="refresh-fill"></div></div>
+</div>
+<div id="topbar"><div id="search-wrap"><input id="search-input" type="text" placeholder="Search MMSI or vessel name…" autocomplete="off"/><button id="search-btn" onclick="searchShip()">FIND</button></div></div>
+<div id="ship-panel" class="panel">
+  <span id="ship-close" onclick="closePanel()">✕</span>
+  <h3 id="sp-name">—</h3>
+  <div class="sp-type-badge" id="sp-badge">UNKNOWN</div>
+  <div class="sp-row"><span class="sp-key">MMSI</span><span class="sp-val" id="sp-mmsi">—</span></div>
+  <div class="sp-row"><span class="sp-key">IMO</span><span class="sp-val" id="sp-imo">—</span></div>
+  <div class="sp-row"><span class="sp-key">Speed</span><span class="sp-val" id="sp-speed">—</span></div>
+  <div class="sp-row"><span class="sp-key">Course</span><span class="sp-val" id="sp-course">—</span></div>
+  <div class="sp-row"><span class="sp-key">Flag</span><span class="sp-val" id="sp-flag">—</span></div>
+  <div class="sp-row"><span class="sp-key">Position</span><span class="sp-val" id="sp-pos">—</span></div>
+  <div class="sp-sources" id="sp-sources"></div>
+</div>
+<div id="toast"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
+<script>
+const REFRESH_MS=30000,MIN_ZOOM=4,CLUSTER_OFF=10;
+const TYPE_HEX={cargo:'#2f9cff',tanker:'#ff4060',passenger:'#00e5a0',fishing:'#ffaa00',tug:'#c084fc',sailing:'#ffd700',military:'#ff3b6b',highspeed:'#00f0ff',pleasure:'#f472b6',unknown:'#6688aa'};
+const map=L.map('map',{center:[25,15],zoom:4,zoomControl:true,preferCanvas:true});map.zoomControl.setPosition('bottomright');
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© <a href="https://openstreetmap.org">OSM</a> | Sources: AISstream, MarineTraffic, Datalastic',maxZoom:19}).addTo(map);
+const cluster=L.markerClusterGroup({disableClusteringAtZoom:CLUSTER_OFF,maxClusterRadius:50,chunkedLoading:true,spiderfyOnMaxZoom:true,showCoverageOnHover:false,animateAddingMarkers:false});map.addLayer(cluster);
+let markers={},shipIndex={},hiddenTypes=new Set(),refreshTimer,countdownTimer,moveDebounce,countdown=REFRESH_MS/1000,isFetching=false;
+function makeIcon(type,course,speed){const color=TYPE_HEX[type]??TYPE_HEX.unknown,moving=speed>0.5;const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="24" viewBox="0 0 16 24" style="transform:rotate(${course??0}deg);transform-origin:8px 12px;display:block;overflow:visible"><polygon points="8,1 15,23 8,17 1,23" fill="${color}" stroke="rgba(0,0,0,0.55)" stroke-width="1" opacity="${moving?0.95:0.6}"/>${moving?'<circle cx="8" cy="12" r="1.5" fill="rgba(255,255,255,0.5)"/>':''}</svg>`;return L.divIcon({html:svg,className:'',iconSize:[16,24],iconAnchor:[8,12],popupAnchor:[0,-14]});}
+async function fetchShips(){const zoom=map.getZoom();if(zoom<MIN_ZOOM){toast(`Zoom in to load vessels (need zoom ≥ ${MIN_ZOOM})`);return;}if(isFetching)return;isFetching=true;setSrcState('ais','loading');setSrcState('mt','loading');setSrcState('dl','loading');const{lat,lng}=map.getCenter();try{const res=await fetch(`/api/ships?lat=${lat.toFixed(5)}&lon=${lng.toFixed(5)}&zoom=${zoom}&allowSimulation=1`);if(!res.ok)throw new Error(`HTTP ${res.status}`);const{ships,meta}=await res.json();updateSrc('ais',meta?.sources?.aisstream?.count);updateSrc('mt',meta?.sources?.marinetraffic?.count);updateSrc('dl',meta?.sources?.datalastic?.count);isFetching=false;renderShips(ships);flashStat('s-total',ships.length);document.getElementById('s-zoom').textContent=zoom;resetCountdown();if(meta?.message)toast(meta.message);if(meta?.fallback==='simulated')toast('No live feed reached yet, showing simulation data');}catch(err){console.warn('[NAVTRACK] Fetch failed:',err.message);setSrcState('ais','err');setSrcState('mt','err');setSrcState('dl','err');isFetching=false;toast('Data fetch failed — retrying in 30s');}}
+function renderShips(ships){const incoming=new Set(ships.map(s=>s.mmsi));for(const mmsi of Object.keys(markers)){if(!incoming.has(mmsi)){cluster.removeLayer(markers[mmsi]);delete markers[mmsi];delete shipIndex[mmsi];}}const toAdd=[];for(const ship of ships){shipIndex[ship.mmsi]=ship;const hidden=hiddenTypes.has(ship.type);if(markers[ship.mmsi]){markers[ship.mmsi].setLatLng([ship.lat,ship.lon]);markers[ship.mmsi].setIcon(makeIcon(ship.type,ship.course,ship.speed));if(hidden&&cluster.hasLayer(markers[ship.mmsi]))cluster.removeLayer(markers[ship.mmsi]);if(!hidden&&!cluster.hasLayer(markers[ship.mmsi]))cluster.addLayer(markers[ship.mmsi]);}else{const m=L.marker([ship.lat,ship.lon],{icon:makeIcon(ship.type,ship.course,ship.speed),riseOnHover:true,title:ship.name});m.on('click',()=>openPanel(ship.mmsi));markers[ship.mmsi]=m;if(!hidden)toAdd.push(m);}}if(toAdd.length)cluster.addLayers(toAdd);}
+function openPanel(mmsi){const s=shipIndex[mmsi];if(!s)return;const color=TYPE_HEX[s.type]??TYPE_HEX.unknown;document.getElementById('sp-name').textContent=s.name||'Unknown Vessel';document.getElementById('sp-mmsi').textContent=s.mmsi;document.getElementById('sp-imo').textContent=s.imo||'—';document.getElementById('sp-speed').textContent=s.speed!=null?`${s.speed.toFixed(1)} kn`:'—';document.getElementById('sp-course').textContent=s.course!=null?`${Math.round(s.course)}°`:'—';document.getElementById('sp-flag').textContent=s.flag||'—';document.getElementById('sp-pos').textContent=`${s.lat.toFixed(4)}, ${s.lon.toFixed(4)}`;const badge=document.getElementById('sp-badge');badge.textContent=(s.type??'unknown').toUpperCase();badge.style.background=color+'22';badge.style.color=color;badge.style.border=`1px solid ${color}44`;const src=document.getElementById('sp-sources');src.innerHTML=(s.sources??[s.src??'unknown']).map(tag=>`<span class="sp-src-tag">${String(tag).toUpperCase()}</span>`).join('');document.getElementById('ship-panel').style.display='block';map.panTo([s.lat,s.lon],{animate:true,duration:.5});}
+function closePanel(){document.getElementById('ship-panel').style.display='none';}
+function toggleType(el){const type=el.dataset.type;if(hiddenTypes.has(type)){hiddenTypes.delete(type);el.classList.remove('hidden');for(const[mmsi,ship]of Object.entries(shipIndex)){if(ship.type===type&&markers[mmsi]&&!cluster.hasLayer(markers[mmsi]))cluster.addLayer(markers[mmsi]);}}else{hiddenTypes.add(type);el.classList.add('hidden');for(const[mmsi,ship]of Object.entries(shipIndex)){if(ship.type===type&&markers[mmsi]&&cluster.hasLayer(markers[mmsi]))cluster.removeLayer(markers[mmsi]);}}}
+function searchShip(){const q=document.getElementById('search-input').value.trim().toLowerCase();if(!q)return;const match=Object.values(shipIndex).find(s=>s.mmsi===q||s.name?.toLowerCase().includes(q));if(match){map.flyTo([match.lat,match.lon],12,{duration:1.2});openPanel(match.mmsi);}else toast(`No vessel found for "${q}" — try after next refresh`);}
+document.getElementById('search-input').addEventListener('keydown',e=>{if(e.key==='Enter')searchShip();});
+function setSrcState(id,state){const el=document.getElementById(`src-${id}`);el.className=`src ${state}`;}
+function updateSrc(id,val){const isNum=typeof val==='number';setSrcState(id,isNum?'ok':'err');document.getElementById(`cnt-${id}`).textContent=isNum?val:'err';}
+function flashStat(id,val){const el=document.getElementById(id);el.textContent=val;el.classList.add('updated');setTimeout(()=>el.classList.remove('updated'),800);}let toastTimer;function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),3500);}
+function resetCountdown(){clearInterval(countdownTimer);countdown=REFRESH_MS/1000;document.getElementById('refresh-fill').style.width='0%';countdownTimer=setInterval(()=>{countdown--;document.getElementById('s-next').textContent=countdown;const pct=((REFRESH_MS/1000-countdown)/(REFRESH_MS/1000))*100;document.getElementById('refresh-fill').style.width=pct+'%';if(countdown<=0)clearInterval(countdownTimer);},1000);}
+refreshTimer=setInterval(fetchShips,REFRESH_MS);map.on('moveend',()=>{clearTimeout(moveDebounce);moveDebounce=setTimeout(fetchShips,900);});map.on('zoomend',()=>{document.getElementById('s-zoom').textContent=map.getZoom();});
+document.getElementById('s-zoom').textContent=map.getZoom();fetchShips();resetCountdown();
+</script>
+</body>
+</html>
