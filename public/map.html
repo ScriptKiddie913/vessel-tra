@@ -4,7 +4,9 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>NAVTRACK — Global Ship Tracker</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>⚓</text></svg>"/>
+
+<link rel="icon" type="image/svg+xml"
+href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>⚓</text></svg>"/>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css"/>
@@ -16,12 +18,13 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
---bg:#04080f;--ocean:#06111e;--panel:rgba(4,14,28,.93);--border:rgba(0,190,255,.14);
+--bg:#04080f;--panel:rgba(4,14,28,.93);--border:rgba(0,190,255,.14);
 --accent:#00bfff;--green:#00e5a0;--warn:#ff5e3a;--amber:#ffaa00;
 --text:#a8cce0;--dim:#3d607a;
 --mono:'Share Tech Mono',monospace;--sans:'Barlow',sans-serif;
---c-cargo:#2f9cff;--c-tanker:#ff4060;--c-passenger:#00e5a0;--c-fishing:#ffaa00;
---c-tug:#c084fc;--c-sailing:#ffd700;--c-military:#ff3b6b;--c-highspeed:#00f0ff;
+--c-cargo:#2f9cff;--c-tanker:#ff4060;--c-passenger:#00e5a0;
+--c-fishing:#ffaa00;--c-tug:#c084fc;--c-sailing:#ffd700;
+--c-military:#ff3b6b;--c-highspeed:#00f0ff;
 --c-pleasure:#f472b6;--c-unknown:#6688aa;
 }
 html,body{height:100%;width:100%;background:var(--bg);font-family:var(--sans);overflow:hidden;color:var(--text)}
@@ -44,22 +47,17 @@ html,body{height:100%;width:100%;background:var(--bg);font-family:var(--sans);ov
 .src.ok .src-dot{background:var(--green);box-shadow:0 0 5px var(--green)}
 .src.err .src-dot{background:var(--warn)}
 .src.loading .src-dot{background:var(--amber);animation:blink .8s infinite}
-#legend{padding:8px 16px 12px}
-.leg-title{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px}
-.leg-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px}
-.leg-item{display:flex;align-items:center;gap:6px;font-size:10px;cursor:pointer}
-.leg-item.hidden{opacity:.25}
-.leg-swatch{width:9px;height:9px;border-radius:2px}
 #refresh-track{height:2px;background:rgba(0,190,255,.06)}
 #refresh-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--green),var(--accent))}
 #ship-panel{position:absolute;bottom:24px;right:16px;z-index:900;width:250px;padding:14px;display:none}
 #topbar{position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:900}
 #search-input{background:var(--panel);border:1px solid var(--border);color:var(--text);font-family:var(--mono);padding:8px 14px;width:220px}
 #search-btn{background:var(--accent);border:none;padding:8px 14px;font-family:var(--mono);font-weight:700;cursor:pointer}
-#toast{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);z-index:1000;background:var(--panel);border:1px solid var(--border);padding:8px 18px;font-family:var(--mono);opacity:0}
+#toast{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);z-index:1000;background:var(--panel);border:1px solid var(--border);padding:8px 18px;font-family:var(--mono);opacity:0;transition:.3s}
 #toast.show{opacity:1}
 </style>
 </head>
+
 <body>
 
 <div id="map"></div>
@@ -103,7 +101,8 @@ html,body{height:100%;width:100%;background:var(--bg);font-family:var(--sans);ov
 <script>
 const REFRESH_MS=30000,MIN_ZOOM=4,CLUSTER_OFF=10;
 const TYPE_HEX={cargo:'#2f9cff',tanker:'#ff4060',passenger:'#00e5a0',fishing:'#ffaa00',tug:'#c084fc',sailing:'#ffd700',military:'#ff3b6b',highspeed:'#00f0ff',pleasure:'#f472b6',unknown:'#6688aa'};
-const map=L.map('map',{center:[25,15],zoom:4,zoomControl:true,preferCanvas:true});
+
+const map=L.map('map',{center:[25,15],zoom:4,zoomControl:true});
 map.zoomControl.setPosition('bottomright');
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
@@ -113,7 +112,7 @@ maxZoom:19}).addTo(map);
 const cluster=L.markerClusterGroup({disableClusteringAtZoom:CLUSTER_OFF});
 map.addLayer(cluster);
 
-let markers={},shipIndex={},refreshTimer,countdownTimer,countdown=30,isFetching=false;
+let markers={},shipIndex={},isFetching=false;
 
 function makeIcon(type,course){
 const color=TYPE_HEX[type]||TYPE_HEX.unknown;
@@ -131,7 +130,7 @@ setSrc('ais','loading');setSrc('mt','loading');setSrc('dl','loading');
 
 const{lat,lng}=map.getCenter();
 try{
-const res=await fetch(`/api/ships?lat=${lat}&lon=${lng}&zoom=${zoom}`);
+const res=await fetch(`/api/ships?lat=${lat}&lon=${lng}&zoom=${zoom}&allowSimulation=1`);
 const{ships,meta}=await res.json();
 
 updateSrc('ais',meta?.sources?.aisstream?.count);
@@ -141,6 +140,8 @@ updateSrc('dl',meta?.sources?.datalastic?.count);
 renderShips(ships);
 document.getElementById('s-total').textContent=ships.length;
 document.getElementById('s-zoom').textContent=zoom;
+
+if(meta?.fallback==='simulated')toast('Showing simulated data');
 
 }catch(e){
 setSrc('ais','err');setSrc('mt','err');setSrc('dl','err');
@@ -158,9 +159,7 @@ cluster.addLayer(m);
 });
 }
 
-function setSrc(id,state){
-document.getElementById(`src-${id}`).className=`src ${state}`;
-}
+function setSrc(id,state){document.getElementById(`src-${id}`).className=`src ${state}`;}
 function updateSrc(id,val){
 setSrc(id,typeof val==='number'?'ok':'err');
 document.getElementById(`cnt-${id}`).textContent=val??'err';
@@ -172,7 +171,15 @@ const match=Object.values(shipIndex).find(s=>s.mmsi===q||s.name?.toLowerCase().i
 if(match)map.flyTo([match.lat,match.lon],10);
 }
 
-refreshTimer=setInterval(fetchShips,REFRESH_MS);
+let toastTimer;
+function toast(msg){
+const el=document.getElementById('toast');
+el.textContent=msg;el.classList.add('show');
+clearTimeout(toastTimer);
+toastTimer=setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+setInterval(fetchShips,REFRESH_MS);
 fetchShips();
 </script>
 

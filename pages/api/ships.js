@@ -23,6 +23,14 @@ const SOURCE_NAMES = {
   datalastic: 'dl',
 };
 
+const NON_VESSEL_KEYWORDS = [
+  'aircraft',
+  'plane',
+  'flight',
+  'helicopter',
+  'heli',
+];
+
 const globalState = globalThis.__NAVTRACK_AISSTREAM__ || {
   started: false,
   connected: false,
@@ -47,8 +55,25 @@ function parseNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+function isLikelyVesselMmsi(mmsi) {
+  if (!/^\d{9}$/.test(mmsi)) return false;
+  const firstDigit = Number(mmsi[0]);
+  return firstDigit >= 2 && firstDigit <= 7;
+}
+
+function looksLikeAircraftOrNonVessel(name, type) {
+  const hay = `${String(name || '')} ${String(type || '')}`.toLowerCase();
+  return NON_VESSEL_KEYWORDS.some((keyword) =>
+    hay.includes(keyword)
+  );
+}
+
 function buildBBox(lat, lon, zoom) {
-  const span = Math.max(0.6, Math.min(45, 120 / Math.pow(2, Math.max(zoom, 2) - 2)));
+  const span = Math.max(
+    0.6,
+    Math.min(45, 120 / Math.pow(2, Math.max(zoom, 2) - 2))
+  );
+
   return {
     minLat: Math.max(-85, lat - span / 2),
     maxLat: Math.min(85, lat + span / 2),
@@ -60,10 +85,12 @@ function buildBBox(lat, lon, zoom) {
 function latLonToTile(lat, lon, zoom) {
   const n = Math.pow(2, zoom);
   const latRad = (lat * Math.PI) / 180;
+
   const x = Math.floor(((lon + 180) / 360) * n);
   const y = Math.floor(
     ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n
   );
+
   return {
     x: Math.max(0, Math.min(n - 1, x)),
     y: Math.max(0, Math.min(n - 1, y)),
@@ -107,15 +134,35 @@ function normalizeShip(raw, source) {
   if (lat == null || lon == null) return null;
 
   const mmsiRaw =
-    raw.mmsi ?? raw.MMSI ?? raw.ais_id ?? raw.id ?? raw.userId ?? raw.userid;
+    raw.mmsi ??
+    raw.MMSI ??
+    raw.ais_id ??
+    raw.id ??
+    raw.userId ??
+    raw.userid;
+
   if (mmsiRaw == null) return null;
 
   const mmsi = String(mmsiRaw).trim();
   if (!mmsi) return null;
+  if (!isLikelyVesselMmsi(mmsi)) return null;
+
+  if (
+    looksLikeAircraftOrNonVessel(
+      raw.name ?? raw.vessel_name ?? raw.shipname,
+      raw.type ?? raw.ship_type ?? raw.vessel_type
+    )
+  ) {
+    return null;
+  }
 
   return {
     mmsi,
-    name: raw.name ?? raw.vessel_name ?? raw.shipname ?? `MMSI ${mmsi}`,
+    name:
+      raw.name ??
+      raw.vessel_name ??
+      raw.shipname ??
+      `MMSI ${mmsi}`,
     imo: raw.imo ? String(raw.imo) : null,
     lat,
     lon,
@@ -143,6 +190,7 @@ function normalizeAisMessage(msg) {
   const lon = parseNumber(pr.Longitude);
 
   if (!mmsi || lat == null || lon == null) return null;
+  if (!isLikelyVesselMmsi(mmsi)) return null;
 
   return {
     mmsi,
@@ -170,11 +218,20 @@ function initAisStream() {
     return;
   }
 
+  if (typeof WebSocket === 'undefined') {
+    globalState.error = 'WebSocket runtime unavailable';
+    return;
+  }
+
   const connect = () => {
-    const ws = new WebSocket('wss://stream.aisstream.io/v0/stream');
+    const ws = new WebSocket(
+      'wss://stream.aisstream.io/v0/stream'
+    );
 
     ws.onopen = () => {
       globalState.connected = true;
+      globalState.error = null;
+
       ws.send(
         JSON.stringify({
           APIKey: apiKey,
@@ -192,6 +249,10 @@ function initAisStream() {
           globalState.lastMessageAt = Date.now();
         }
       } catch {}
+    };
+
+    ws.onerror = () => {
+      globalState.error = 'AISstream websocket error';
     };
 
     ws.onclose = () => {
@@ -231,7 +292,8 @@ async function fromMarineTraffic(lat, lon, zoom) {
       if (x < 0 || y < 0) continue;
 
       const url =
-        `https://www.marinetraffic.com/getData/get_data_json_4/z:${z}/X:${x}/Y:${y}/station:0`;
+        `https://www.marinetraffic.com/getData/get_data_json_4/` +
+        `z:${z}/X:${x}/Y:${y}/station:0`;
 
       requests.push(
         fetchJson(url, {
@@ -243,12 +305,15 @@ async function fromMarineTraffic(lat, lon, zoom) {
   }
 
   const settled = await Promise.all(requests);
-  const rows = settled.flatMap((r) => (Array.isArray(r) ? r : []));
+  const rows = settled.flatMap((r) =>
+    Array.isArray(r) ? r : []
+  );
 
   return rows
     .map((row) => {
       if (!Array.isArray(row) || row.length < 6) return null;
-      const [mmsi, latV, lonV, course, speed, name, type] = row;
+      const [mmsi, latV, lonV, course, speed, name, type] =
+        row;
       return normalizeShip(
         { mmsi, lat: latV, lon: lonV, course, speed, name, type },
         'marinetraffic'
@@ -259,19 +324,28 @@ async function fromMarineTraffic(lat, lon, zoom) {
 
 async function fromDatalasticWithKey(bbox) {
   const key = process.env.DATALASTIC_API_KEY;
-  if (!key) throw new Error('DATALASTIC_API_KEY missing');
+  if (!key)
+    throw new Error('DATALASTIC_API_KEY missing');
 
   const lat = ((bbox.minLat + bbox.maxLat) / 2).toFixed(5);
   const lon = ((bbox.minLon + bbox.maxLon) / 2).toFixed(5);
 
   const url =
     `https://api.datalastic.com/api/v0/vessel_inradius?lat=${lat}` +
-    `&lon=${lon}&radius=200&api-key=${encodeURIComponent(key)}`;
+    `&lon=${lon}&radius=200&api-key=${encodeURIComponent(
+      key
+    )}`;
 
   const data = await fetchJson(url);
-  const rows = Array.isArray(data?.data) ? data.data : [];
+  const rows = Array.isArray(data?.data)
+    ? data.data
+    : [];
 
-  return rows.map((item) => normalizeShip(item, 'datalastic')).filter(Boolean);
+  return rows
+    .map((item) =>
+      normalizeShip(item, 'datalastic')
+    )
+    .filter(Boolean);
 }
 
 function mergeShips(listBySource) {
@@ -302,43 +376,59 @@ function mergeShips(listBySource) {
 
 function mockShips(lat, lon, count = 120) {
   const types = [
-    'cargo','tanker','passenger','fishing','tug',
-    'sailing','military','highspeed','pleasure','unknown'
+    'cargo',
+    'tanker',
+    'passenger',
+    'fishing',
+    'tug',
+    'sailing',
+    'military',
+    'highspeed',
+    'pleasure',
+    'unknown',
   ];
 
-  return Array.from({ length: count }).map((_, i) => {
-    const dist = Math.random() * 2.8 + 0.1;
-    const angle = Math.random() * Math.PI * 2;
+  return Array.from({ length: count }).map(
+    (_, i) => {
+      const dist = Math.random() * 2.8 + 0.1;
+      const angle = Math.random() * Math.PI * 2;
 
-    return {
-      mmsi: `999${String(i).padStart(6, '0')}`,
-      name: `SIM-${i + 1}`,
-      imo: null,
-      lat: lat + Math.cos(angle) * dist,
-      lon: lon + Math.sin(angle) * dist,
-      speed: Number((Math.random() * 19).toFixed(1)),
-      course: Math.round(Math.random() * 359),
-      flag: ['PA','LR','SG','NO','GR'][i % 5],
-      type: types[i % types.length],
-      src: 'sim',
-      sources: ['sim'],
-      ts: Date.now(),
-    };
-  });
+      return {
+        mmsi: `999${String(i).padStart(6, '0')}`,
+        name: `SIM-${i + 1}`,
+        imo: null,
+        lat: lat + Math.cos(angle) * dist,
+        lon: lon + Math.sin(angle) * dist,
+        speed: Number(
+          (Math.random() * 19).toFixed(1)
+        ),
+        course: Math.round(Math.random() * 359),
+        flag: ['PA', 'LR', 'SG', 'NO', 'GR'][i % 5],
+        type: types[i % types.length],
+        src: 'sim',
+        sources: ['sim'],
+        ts: Date.now(),
+      };
+    }
+  );
 }
 
 export default async function handler(req, res) {
   const lat = Number(req.query.lat ?? 25);
   const lon = Number(req.query.lon ?? 15);
   const zoom = Number(req.query.zoom ?? 4);
+  const allowSimulation =
+    req.query.allowSimulation !== '0';
 
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-    return res.status(400).json({ error: 'lat/lon must be numbers' });
+    return res
+      .status(400)
+      .json({ error: 'lat/lon must be numbers' });
   }
 
   initAisStream();
-  const bbox = buildBBox(lat, lon, zoom);
 
+  const bbox = buildBBox(lat, lon, zoom);
   const aisShips = readAisShipsInBbox(bbox);
 
   const [mt, dl] = await Promise.allSettled([
@@ -348,8 +438,10 @@ export default async function handler(req, res) {
 
   const bySource = {
     aisstream: aisShips,
-    marinetraffic: mt.status === 'fulfilled' ? mt.value : [],
-    datalastic: dl.status === 'fulfilled' ? dl.value : [],
+    marinetraffic:
+      mt.status === 'fulfilled' ? mt.value : [],
+    datalastic:
+      dl.status === 'fulfilled' ? dl.value : [],
   };
 
   const sources = {
@@ -360,20 +452,36 @@ export default async function handler(req, res) {
     },
     marinetraffic: {
       ok: mt.status === 'fulfilled',
-      count: mt.status === 'fulfilled' ? mt.value.length : null,
-      error: mt.status === 'rejected' ? mt.reason?.message : null,
+      count:
+        mt.status === 'fulfilled'
+          ? mt.value.length
+          : null,
+      error:
+        mt.status === 'rejected'
+          ? mt.reason?.message
+          : null,
     },
     datalastic: {
       ok: dl.status === 'fulfilled',
-      count: dl.status === 'fulfilled' ? dl.value.length : null,
-      error: dl.status === 'rejected' ? dl.reason?.message : null,
+      count:
+        dl.status === 'fulfilled'
+          ? dl.value.length
+          : null,
+      error:
+        dl.status === 'rejected'
+          ? dl.reason?.message
+          : null,
     },
   };
 
-  let ships = mergeShips(bySource).slice(0, DEFAULT_LIMIT);
+  let ships = mergeShips(bySource).slice(
+    0,
+    DEFAULT_LIMIT
+  );
+
   let fallback = null;
 
-  if (ships.length === 0) {
+  if (ships.length === 0 && allowSimulation) {
     ships = mockShips(lat, lon, 180);
     fallback = 'simulated';
   }
@@ -390,6 +498,13 @@ export default async function handler(req, res) {
       fallback,
       sources,
       generatedAt: new Date().toISOString(),
+      aisstream: {
+        connected: globalState.connected,
+        shipCacheSize:
+          globalState.ships.size,
+        lastMessageAt:
+          globalState.lastMessageAt,
+      },
     },
   });
 }
