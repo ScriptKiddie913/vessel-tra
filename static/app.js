@@ -67,15 +67,41 @@ const getIcon = (type, course, isSelected = false) => {
     const scale = isSelected ? 1.8 : 1.2;
     const glow = isSelected ? `filter: drop-shadow(0 0 10px ${color});` : '';
     
-    // Detailed ship silhouette
+    // Detailed ship silhouette - properly oriented (bow up = North = 0°)
+    const t = type.toLowerCase();
+    let shipPath, deckDetail;
+
+    if (t.includes('tanker')) {
+      shipPath   = `M20,4 C25,7 27,11 27,14 L27,32 L20,36 L13,32 L13,14 C13,11 15,7 20,4 Z`;
+      deckDetail = `<ellipse cx="20" cy="22" rx="5" ry="7" fill="${color}" fill-opacity="0.25" stroke="${color}" stroke-width="0.5"/>`;
+    } else if (t.includes('cargo') || t.includes('container')) {
+      shipPath   = `M20,4 L27,10 L27,33 L20,37 L13,33 L13,10 Z`;
+      deckDetail = `<rect x="16" y="12" width="8" height="6" rx="0.5" fill="${color}" fill-opacity="0.3" stroke="${color}" stroke-width="0.5"/>
+                    <rect x="16" y="20" width="8" height="6" rx="0.5" fill="${color}" fill-opacity="0.3" stroke="${color}" stroke-width="0.5"/>`;
+    } else if (t.includes('passenger') || t.includes('cruise')) {
+      shipPath   = `M20,4 L27,9 L27,32 L20,36 L13,32 L13,9 Z`;
+      deckDetail = `<rect x="15" y="10" width="10" height="16" rx="2" fill="white" fill-opacity="0.15" stroke="${color}" stroke-width="0.5"/>`;
+    } else if (t.includes('military') || t.includes('warship') || t.includes('law')) {
+      shipPath   = `M20,3 L28,10 L26,32 L20,36 L14,32 L12,10 Z`;
+      deckDetail = `<polygon points="18,12 22,12 21,20 19,20" fill="${color}" fill-opacity="0.4" stroke="${color}" stroke-width="0.5"/>
+                    <line x1="20" y1="4" x2="20" y2="11" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/>`;
+    } else if (t.includes('fishing')) {
+      shipPath   = `M20,6 L24,12 L24,28 L20,31 L16,28 L16,12 Z`;
+      deckDetail = `<circle cx="20" cy="22" r="4" fill="${color}" fill-opacity="0.25" stroke="${color}" stroke-width="0.5"/>
+                    <circle cx="20" cy="14" r="1.5" fill="${color}" fill-opacity="0.7"/>`;
+    } else if (t.includes('tug') || t.includes('pilot')) {
+      shipPath   = `M20,7 L25,12 L25,29 L20,32 L15,29 L15,12 Z`;
+      deckDetail = `<rect x="16" y="13" width="8" height="9" rx="2" fill="${color}" fill-opacity="0.3" stroke="${color}" stroke-width="0.5"/>`;
+    } else {
+      shipPath   = `M20,5 L26,11 L26,32 L20,35 L14,32 L14,11 Z`;
+      deckDetail = `<circle cx="20" cy="25" r="2.5" fill="${color}" fill-opacity="0.35" stroke="${color}" stroke-width="0.5"/>
+                    <line x1="20" y1="8" x2="20" y2="13" stroke="${color}" stroke-width="1" stroke-linecap="round"/>`;
+    }
+
     const svgIcon = `
         <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform: rotate(${course}deg) scale(${scale}); ${glow} transition: transform 1.2s cubic-bezier(0,0,0,1);">
-            <path d="M20 5 L24 12 L24 32 L20 35 L16 32 L16 12 Z" fill="${color}" fill-opacity="0.9" stroke="white" stroke-width="0.5"/>
-            <path d="M18 12 L22 12 L21 20 L19 20 Z" fill="white" fill-opacity="0.4"/>
-            <circle cx="20" cy="28" r="1.5" fill="white" fill-opacity="0.6"/>
-        </svg>
-    `;
-    
+          <path d="${shipPath}" fill="${color}" fill-opacity="0.9" stroke="white" stroke-width="0.5"/>
+          ${deckDetail}
     return L.divIcon({
         html: svgIcon,
         className: 'ship-icon',

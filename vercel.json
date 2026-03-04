@@ -1,17 +1,23 @@
 {
   "version": 2,
-  "buildCommand": "pip install -r requirements.txt",
-  "outputDirectory": "ui3",
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "50mb"
+      }
+    }
+  ],
   "functions": {
     "api/index.py": {
-      "runtime": "python3.9",
-      "maxDuration": 30
+      "maxDuration": 300
     }
   },
   "routes": [
-    { "src": "/ws",          "dest": "/api/index.py" },
-    { "src": "/api/(.*)",    "dest": "/api/index.py" },
-    { "src": "/app.js",      "dest": "/app.js" },
-    { "src": "/(.*)",        "dest": "/$1" }
+    {
+      "src": "/(.*)",
+      "dest": "api/index.py"
+    }
   ]
 }
