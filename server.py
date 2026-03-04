@@ -392,16 +392,16 @@ async def shipinfo_worker():
 # ─── Satellite TLE + propagation ──────────────────────────────────────────────
 
 TLE_SOURCES = [
-    ("ALL_ACTIVE",   "https://celestrak.org/pub/TLE/active.txt"),
-    ("Starlink",     "https://celestrak.org/pub/TLE/starlink.txt"),
-    ("GPS",          "https://celestrak.org/pub/TLE/gps-ops.txt"),
-    ("GLONASS",      "https://celestrak.org/pub/TLE/glo-ops.txt"),
-    ("Galileo",      "https://celestrak.org/pub/TLE/galileo.txt"),
-    ("Beidou",       "https://celestrak.org/pub/TLE/beidou.txt"),
-    ("Weather",      "https://celestrak.org/pub/TLE/weather.txt"),
-    ("EarthObs",     "https://celestrak.org/pub/TLE/earth-obs.txt"),
-    ("Amateur",      "https://celestrak.org/pub/TLE/amateur.txt"),
-    ("Stations",     "https://celestrak.org/pub/TLE/stations.txt"),
+    ("Active",    "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle"),
+    ("Stations",  "https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=tle"),
+    ("Starlink",  "https://celestrak.org/NORAD/elements/gp.php?GROUP=starlink&FORMAT=tle"),
+    ("GPS",       "https://celestrak.org/NORAD/elements/gp.php?GROUP=gps-ops&FORMAT=tle"),
+    ("GLONASS",   "https://celestrak.org/NORAD/elements/gp.php?GROUP=glo-ops&FORMAT=tle"),
+    ("Galileo",   "https://celestrak.org/NORAD/elements/gp.php?GROUP=galileo&FORMAT=tle"),
+    ("Beidou",    "https://celestrak.org/NORAD/elements/gp.php?GROUP=beidou&FORMAT=tle"),
+    ("Weather",   "https://celestrak.org/NORAD/elements/gp.php?GROUP=weather&FORMAT=tle"),
+    ("EarthObs",  "https://celestrak.org/NORAD/elements/gp.php?GROUP=earth-obs&FORMAT=tle"),
+    ("Amateur",   "https://celestrak.org/NORAD/elements/gp.php?GROUP=amateur&FORMAT=tle"),
 ]
 
 async def satellite_worker():
@@ -423,7 +423,12 @@ async def satellite_worker():
             except Exception as e: logger.warning(f"TLE {grp}: {e}")
         return sats
 
-    catalog = await loop.run_in_executor(None, fetch_tles)
+    catalog = []
+    while not catalog:
+        catalog = await loop.run_in_executor(None, fetch_tles)
+        if not catalog:
+            logger.warning("No TLEs fetched, retrying in 60s…")
+            await asyncio.sleep(60)
     # Deduplicate by name
     seen = set(); deduped = []
     for s in catalog:
@@ -443,13 +448,16 @@ async def satellite_worker():
         now = datetime.utcnow()
         jd, fr = jday(now.year, now.month, now.day,
                       now.hour, now.minute, now.second + now.microsecond / 1e6)
-        for sat in tle_catalog[:600]:
+        for sat in tle_catalog[:2000]:  # cap per-tick to bound broadcast volume
             try:
                 satrec = Satrec.twoline2rv(sat["line1"], sat["line2"])
                 e, r_v, _ = satrec.sgp4(jd, fr)
                 if e != 0: continue
                 x, y, z = r_v
-                lon_r = math.atan2(y, x) - satrec.gsto
+                # Compute GMST at current time (not at satellite epoch)
+                d = jd + fr - 2451545.0  # days since J2000.0
+                gmst = math.radians((280.46061837 + 360.98564736629 * d) % 360)
+                lon_r = math.atan2(y, x) - gmst
                 lon_r = (lon_r + math.pi) % (2 * math.pi) - math.pi
                 lat_r = math.atan2(z, math.sqrt(x * x + y * y))
                 alt   = math.sqrt(x * x + y * y + z * z) - 6371.0
@@ -465,9 +473,13 @@ async def satellite_worker():
 
         # Refresh TLE catalog every hour (~720 × 5s ticks)
         if ticker >= 720:
-            catalog = await loop.run_in_executor(None, fetch_tles)
-            tle_catalog = catalog
-            source_status["satellites"] = f"LIVE ({len(catalog)})"
+            new_cat = await loop.run_in_executor(None, fetch_tles)
+            if new_cat:
+                seen2 = set(); deduped2 = []
+                for s in new_cat:
+                    if s["name"] not in seen2: seen2.add(s["name"]); deduped2.append(s)
+                tle_catalog = deduped2
+            source_status["satellites"] = f"LIVE ({len(tle_catalog)})"
             await bcast_status()
             await broadcast(json.dumps({"type": "tle_catalog", "tles": tle_catalog}))
             ticker = 0
@@ -520,6 +532,16 @@ async def api_status():
         "sources": source_status,
     }
 
+@app.get("/api/ships")
+async def api_ships():
+    ships = list(ship_registry.values())
+    return {"count": len(ships), "ships": ships[-1000:]}
+
+@app.get("/api/satellites")
+async def api_satellites():
+    sats = list(satellite_registry.values())
+    return {"count": len(sats), "satellites": sats[:500]}
+
 @app.get("/api/tles")
 async def api_tles():
     return {"tles": tle_catalog}
@@ -544,13 +566,7 @@ async def ws_endpoint(ws: WebSocket):
     finally:
         clients.pop(ws, None); w.cancel()
 
-# Override app.js with new version (app2.js) without needing to unlock the old file
-from fastapi.responses import FileResponse as _FR
-@app.get("/app.js")
-async def serve_new_appjs():
-    return _FR(str(BASE_DIR / "ui" / "app2.js"), media_type="application/javascript")
-
-app.mount("/", StaticFiles(directory=str(BASE_DIR / "ui"), html=True), name="static")
+app.mount("/", StaticFiles(directory=str(BASE_DIR / "ui3"), html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
