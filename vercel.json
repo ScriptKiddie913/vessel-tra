@@ -1,9 +1,12 @@
 {
   "version": 2,
+  "framework": null,
+  "buildCommand": null,
+  "installCommand": null,
   "functions": {
     "api/index.py": {
       "maxDuration": 300,
-      "includeFiles": "{static/**,server.py}"
+      "includeFiles": "{ui3/**,server.py}"
     }
   },
   "routes": [
