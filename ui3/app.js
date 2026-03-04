@@ -422,7 +422,7 @@ async function fetchSatellitesClientSide() {
     }
   } catch (ex) { console.warn('api/tles fallback:', ex); }
   try {
-    const r = await fetch('https://corsproxy.io/?https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle');
+    const r = await fetch('https://corsproxy.io/?' + encodeURIComponent('https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle'));
     if (!r.ok) throw new Error(r.status);
     const text  = await r.text();
     const lines = text.trim().split('\n').map(function(l) { return l.trim(); }).filter(Boolean);

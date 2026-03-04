@@ -544,6 +544,38 @@ async def api_satellites():
 
 @app.get("/api/tles")
 async def api_tles():
+    global tle_catalog
+    if not tle_catalog:
+        # Background worker hasn't populated the catalog yet (e.g. Vercel cold-start).
+        # Fetch a single TLE source synchronously so callers always get data.
+        try:
+            loop = asyncio.get_running_loop()
+            def _fetch():
+                sats = []
+                try:
+                    r = requests.get(
+                        "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle",
+                        timeout=15,
+                    )
+                    if r.status_code == 200:
+                        lines = [l.strip() for l in r.text.strip().splitlines() if l.strip()]
+                        for i in range(0, len(lines) - 2, 3):
+                            n, l1, l2 = lines[i], lines[i + 1], lines[i + 2]
+                            if l1.startswith("1 ") and l2.startswith("2 "):
+                                try:
+                                    Satrec.twoline2rv(l1, l2)  # validate TLE before adding
+                                    sats.append({"name": n, "line1": l1, "line2": l2, "group": "Active"})
+                                except Exception:
+                                    pass
+                except Exception as e:
+                    logger.warning(f"api/tles on-demand fetch: {e}")
+                return sats
+            fetched = await loop.run_in_executor(None, _fetch)
+            if fetched:
+                tle_catalog = fetched
+                source_status["satellites"] = f"LIVE ({len(tle_catalog)})"
+        except Exception as e:
+            logger.warning(f"api/tles on-demand fetch failed: {e}")
     return {"tles": tle_catalog}
 
 @app.websocket("/ws")
