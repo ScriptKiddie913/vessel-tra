@@ -1,25 +1,23 @@
 import json
 import asyncio
+import math
+import pathlib
+import requests
+import time
 import websockets
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 from typing import List, Dict, Any
 from datetime import datetime
+from sgp4.api import Satrec, jday
 
 # Configure logging
 logger = logging.getLogger("uvicorn.error")
 
-app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+BASE_DIR = pathlib.Path(__file__).parent
 
 # In-memory storage
 ship_registry: Dict[str, Dict[str, Any]] = {}
@@ -79,12 +77,6 @@ def get_ship_type_label(type_id: int) -> str:
     if type_id == 51: return "Search and Rescue"
     if type_id >= 90: return "Other / Special"
     return "Unknown Vessel"
-
-import requests
-from sgp4.api import Satrec, jday
-import time
-
-# ... (previous imports)
 
 # Satellite tracking storage
 satellite_registry: Dict[str, Dict[str, Any]] = {}
@@ -272,11 +264,21 @@ async def ais_stream_worker():
             logger.error(f"AISStream connection error: {e}")
             await asyncio.sleep(5)
 
-@app.on_event("startup")
-async def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     asyncio.create_task(ais_stream_worker())
     asyncio.create_task(cleanup_registry())
     asyncio.create_task(update_satellites())
+    yield
+
+app = FastAPI(lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -301,7 +303,7 @@ async def websocket_endpoint(websocket: WebSocket):
             del clients[websocket]
         writer_task.cancel()
 
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+app.mount("/", StaticFiles(directory=str(BASE_DIR / "static"), html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn

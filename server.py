@@ -1,5 +1,6 @@
 """Global Ship & Satellite Tracker v3 - Multi-Source Edition"""
-import json, asyncio, math, logging, requests
+import json, asyncio, math, logging, requests, pathlib
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Dict, List, Any
 
@@ -10,7 +11,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 logger = logging.getLogger("uvicorn.error")
-app = FastAPI(title="Ship & Satellite Tracker v3")
+
+BASE_DIR = pathlib.Path(__file__).parent
 
 # ─── MID → Country lookup (MMSI first-3-digits) ──────────────────────────────
 MID: Dict[str, str] = {
@@ -92,6 +94,19 @@ MID: Dict[str, str] = {
 def mmsi_country(mmsi: str) -> str:
     m = str(mmsi)[:3]
     return MID.get(m, "")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    asyncio.create_task(aisstream_worker())
+    asyncio.create_task(barentswatch_worker())
+    asyncio.create_task(aishub_worker())
+    asyncio.create_task(shipxplorer_worker())
+    asyncio.create_task(shipinfo_worker())
+    asyncio.create_task(satellite_worker())
+    asyncio.create_task(cleanup_worker())
+    yield
+
+app = FastAPI(title="Ship & Satellite Tracker v3", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
 
@@ -492,17 +507,7 @@ async def cleanup_worker():
         except Exception as e: logger.error(f"Cleanup: {e}")
         await asyncio.sleep(300)
 
-# ─── App lifecycle ────────────────────────────────────────────────────────────
-
-@app.on_event("startup")
-async def startup():
-    asyncio.create_task(aisstream_worker())
-    asyncio.create_task(barentswatch_worker())
-    asyncio.create_task(aishub_worker())
-    asyncio.create_task(shipxplorer_worker())
-    asyncio.create_task(shipinfo_worker())
-    asyncio.create_task(satellite_worker())
-    asyncio.create_task(cleanup_worker())
+# ─── App lifecycle is handled via lifespan context manager above ─────────────
 
 # ─── API endpoints ────────────────────────────────────────────────────────────
 
@@ -543,9 +548,9 @@ async def ws_endpoint(ws: WebSocket):
 from fastapi.responses import FileResponse as _FR
 @app.get("/app.js")
 async def serve_new_appjs():
-    return _FR("ui/app2.js", media_type="application/javascript")
+    return _FR(str(BASE_DIR / "ui" / "app2.js"), media_type="application/javascript")
 
-app.mount("/", StaticFiles(directory="ui", html=True), name="static")
+app.mount("/", StaticFiles(directory=str(BASE_DIR / "ui"), html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
