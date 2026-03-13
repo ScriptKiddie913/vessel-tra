@@ -1,341 +1,1560 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Global Ship Tracker | Palantir AI Style</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        /* CSS reset and basic setup */
-        body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #0d0e12;
-            color: #e0e0e0;
-            overflow: hidden;
-        }
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>SAT-INTEL | Satellite Intelligence Platform</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+:root{--cyan:#00e5ff;--green:#00ff88;--red:#ff3d3d;--amber:#ffab00;--purple:#b388ff;--bg:#060a14;--panel:#0a0e1a;--border:rgba(255,255,255,.06)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:#e0e0e0;font-family:'JetBrains Mono',monospace}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2)}
 
-        #map {
-            height: 100%;
-            width: 100%;
-            background-color: #0b0c10;
-        }
+/* Layout */
+.app{display:flex;height:100vh;width:100vw;overflow:hidden}
+.sidebar{width:320px;height:100%;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;z-index:1001}
+.main{flex:1;position:relative;overflow:hidden}
 
-        /* Top HUD style */
-        .hud {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 10px 25px;
-            background: rgba(18, 20, 26, 0.7);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(77, 170, 252, 0.4);
-            border-radius: 50px;
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            gap: 25px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
-            pointer-events: auto;
-        }
+/* Sidebar */
+.sidebar-header{padding:16px;border-bottom:1px solid var(--border)}
+.sidebar-header h1{font-size:14px;font-weight:700;letter-spacing:.2em;color:#fff;display:flex;align-items:center;gap:8px}
+.sidebar-header h1::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+.sidebar-header p{font-size:10px;color:#555;margin-top:4px}
 
-        .hud-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 13px;
-            font-weight: 700;
-            color: #4daafc;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-        }
+.cat-tabs{display:flex;flex-wrap:wrap;gap:4px;padding:12px;border-bottom:1px solid var(--border)}
+.cat-btn{padding:4px 8px;border-radius:4px;font-size:10px;font-family:inherit;letter-spacing:.08em;background:transparent;color:#555;border:1px solid transparent;cursor:pointer;transition:.2s}
+.cat-btn.active{background:rgba(0,229,255,.12);color:var(--cyan);border-color:rgba(0,229,255,.3)}
+.cat-btn:hover{color:#999}
 
-        /* Filter UI */
-        .filters {
-            position: absolute;
-            bottom: 30px;
-            left: 30px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            z-index: 1000;
-        }
+.country-bar{display:flex;flex-wrap:wrap;gap:4px;padding:12px;border-bottom:1px solid var(--border)}
+.country-btn{padding:4px 8px;border-radius:4px;font-size:10px;font-family:inherit;background:transparent;color:#555;border:1px solid transparent;cursor:pointer;transition:.2s}
+.country-btn.active{background:rgba(255,255,255,.1);color:#fff;border-color:rgba(255,255,255,.2)}
 
-        .filter-btn {
-            background: rgba(18, 20, 26, 0.8);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: #888;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+.search-box{padding:12px;border-bottom:1px solid var(--border)}
+.search-box input{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:8px 12px;font-size:11px;font-family:inherit;color:#fff;outline:none;transition:.2s}
+.search-box input:focus{border-color:rgba(0,229,255,.5)}
+.search-box input::placeholder{color:#444}
+.search-count{font-size:10px;color:#555;margin-top:6px}
 
-        .filter-btn:hover {
-            background: rgba(77, 170, 252, 0.1);
-            border-color: rgba(77, 170, 252, 0.4);
-            color: #fff;
-        }
+.sat-list{flex:1;overflow-y:auto}
+.sat-item{width:100%;padding:10px 16px;text-align:left;border:none;background:transparent;border-bottom:1px solid rgba(255,255,255,.02);cursor:pointer;font-family:inherit;transition:.15s;display:block}
+.sat-item:hover{background:rgba(255,255,255,.03)}
+.sat-item.locked{background:rgba(0,229,255,.08);border-left:2px solid var(--cyan)}
+.sat-item .name{color:#fff;font-size:11px;display:flex;align-items:center;gap:6px}
+.sat-item .name::before{content:'';width:5px;height:5px;border-radius:50%;background:rgba(0,255,136,.4);flex-shrink:0}
+.sat-item.locked .name::before{background:var(--cyan);animation:pulse 1.5s infinite}
+.sat-item .meta{color:#555;font-size:10px;margin-top:2px;padding-left:11px}
 
-        .filter-btn.active {
-            background: rgba(77, 170, 252, 0.2);
-            border-color: #4daafc;
-            color: #fff;
-            box-shadow: 0 0 15px rgba(77, 170, 252, 0.3);
-        }
+/* Leaflet */
+.leaflet-container{background:var(--bg)!important;font-family:'JetBrains Mono',monospace!important}
+.leaflet-control-attribution{background:rgba(0,0,0,.6)!important;color:#555!important;font-size:9px!important;font-family:inherit!important}
+.leaflet-control-zoom a{background:rgba(10,14,26,.9)!important;color:var(--cyan)!important;border:1px solid rgba(0,229,255,.2)!important;font-family:inherit!important}
+.leaflet-control-zoom a:hover{background:rgba(0,229,255,.15)!important}
+.leaflet-popup-content-wrapper{background:transparent!important;border-radius:0!important;box-shadow:none!important;padding:0!important}
+.leaflet-popup-content{margin:0!important}
+.leaflet-popup-tip{background:rgba(10,14,26,.95)!important}
+.leaflet-popup-close-button{color:#666!important;font-size:16px!important}
+.leaflet-popup-close-button:hover{color:var(--red)!important}
+.sat-icon,.vessel-icon,.flight-icon{background:none!important;border:none!important}
+.vessel-icon svg{transition:transform .4s ease}
+.sat-icon svg{transition:transform .3s ease}
+.leaflet-marker-icon{will-change:transform}
 
-        .filter-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-        }
+/* Tracking HUD */
+.hud{position:absolute;top:16px;right:16px;width:290px;background:rgba(0,0,0,.88);backdrop-filter:blur(12px);border:1px solid rgba(0,229,255,.2);border-radius:8px;font-size:11px;z-index:1000;display:none;overflow:hidden}
+.hud.open{display:block}
+.hud-header{display:flex;align-items:center;gap:8px;padding:10px 16px;background:rgba(0,229,255,.08);border-bottom:1px solid rgba(0,229,255,.15)}
+.hud-header span{color:var(--cyan);font-size:10px;font-weight:700;letter-spacing:.2em}
+.hud-close{margin-left:auto;background:none;border:none;color:#555;cursor:pointer;font-size:16px;font-family:inherit}
+.hud-close:hover{color:var(--red)}
+.hud-name{padding:12px 16px 8px;border-bottom:1px solid rgba(255,255,255,.04)}
+.hud-name .sat-n{font-size:13px;font-weight:700;color:#fff}
+.hud-name .sat-o{font-size:10px;color:#555;margin-top:2px}
+.hud-grid{padding:12px 16px;display:flex;flex-direction:column;gap:6px}
+.hud-row{display:flex;justify-content:space-between;align-items:center}
+.hud-row .lbl{color:#555;font-size:10px}
+.hud-row .val{color:#bbb;font-size:11px;font-variant-numeric:tabular-nums}
+.hud-row .val.hl{color:var(--cyan)}
+.hud-progress{padding:0 16px 12px}
+.hud-progress .bar-label{display:flex;justify-content:space-between;font-size:9px;color:#555;margin-bottom:4px}
+.hud-progress .bar{height:3px;background:#1a1a2e;border-radius:4px;overflow:hidden}
+.hud-progress .bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--cyan),var(--green));transition:width 1s}
 
-        /* Ship Details Overlay */
-        .ship-details {
-            position: absolute;
-            bottom: 30px;
-            right: 30px;
-            width: 320px;
-            background: rgba(18, 20, 26, 0.9);
-            backdrop-filter: blur(25px);
-            border: 1px solid rgba(77, 170, 252, 0.5);
-            border-radius: 12px;
-            z-index: 1000;
-            padding: 24px;
-            display: none;
-            box-shadow: 0 0 50px rgba(0, 0, 0, 0.9);
-            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        }
+/* Country dashboard */
+.country-dash{position:absolute;top:16px;left:16px;width:250px;background:rgba(0,0,0,.88);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:8px;z-index:1000;font-size:10px;overflow:hidden}
+.country-dash-header{padding:10px 16px;border-bottom:1px solid var(--border);color:var(--cyan);font-weight:700;letter-spacing:.15em;font-size:10px}
+.country-dash-body{padding:10px 12px}
+.cd-row{margin-bottom:6px}
+.cd-row .cd-label{display:flex;justify-content:space-between;color:#888;margin-bottom:2px}
+.cd-row .cd-label .cd-cnt{color:#bbb;font-variant-numeric:tabular-nums}
+.cd-row .cd-bar{height:3px;background:rgba(255,255,255,.04);border-radius:2px;overflow:hidden}
+.cd-row .cd-bar-fill{height:100%;border-radius:2px;opacity:.7;transition:width .5s}
+.country-dash-footer{padding:8px 16px;border-top:1px solid var(--border);color:#444;font-size:9px}
 
-        @keyframes slideUp {
-            from { transform: translateY(20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
+/* Imagery panel */
+.imagery-toggle{position:absolute;top:16px;right:320px;z-index:1000}
+.imagery-btn{padding:8px 12px;border-radius:8px;font-size:10px;font-family:inherit;background:rgba(0,0,0,.7);color:#888;border:1px solid var(--border);cursor:pointer;letter-spacing:.08em;transition:.2s}
+.imagery-btn.active{background:rgba(179,136,255,.15);color:var(--purple);border-color:rgba(179,136,255,.3)}
+.imagery-dropdown{margin-top:8px;width:260px;background:rgba(0,0,0,.92);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:8px;overflow:hidden;display:none}
+.imagery-dropdown.open{display:block}
+.imagery-dropdown-header{padding:10px 16px;border-bottom:1px solid var(--border);color:var(--purple);font-size:10px;font-weight:700;letter-spacing:.15em}
+.imagery-option{display:block;width:100%;padding:8px 12px;background:transparent;border:none;text-align:left;cursor:pointer;font-family:inherit;transition:.15s}
+.imagery-option:hover{background:rgba(255,255,255,.04)}
+.imagery-option.active{background:rgba(179,136,255,.12);color:var(--purple)}
+.imagery-option .io-name{font-size:10px;font-weight:700;color:inherit}
+.imagery-option .io-meta{font-size:9px;color:#555;margin-top:2px}
 
-        .detail-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 14px;
-            font-size: 12px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            padding-bottom: 10px;
-        }
+/* Spectral / NDVI panel */
+.spectral-toggle{position:absolute;top:16px;right:460px;z-index:1000}
+.spectral-btn{padding:8px 12px;border-radius:8px;font-size:10px;font-family:inherit;background:rgba(0,0,0,.7);color:#888;border:1px solid var(--border);cursor:pointer;letter-spacing:.08em;transition:.2s}
+.spectral-btn.active{background:rgba(0,229,255,.15);color:var(--cyan);border-color:rgba(0,229,255,.3)}
+.spectral-panel{margin-top:8px;width:300px;background:rgba(0,0,0,.92);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:8px;overflow:hidden;display:none;max-height:420px;overflow-y:auto}
+.spectral-panel.open{display:block}
+.spectral-panel-header{padding:10px 16px;border-bottom:1px solid var(--border);color:var(--cyan);font-size:10px;font-weight:700;letter-spacing:.15em;display:flex;justify-content:space-between;align-items:center}
+.spectral-combos{display:flex;gap:4px;padding:8px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.combo-btn{padding:4px 8px;border-radius:4px;font-size:9px;font-family:inherit;background:transparent;color:#555;border:1px solid transparent;cursor:pointer;transition:.2s}
+.combo-btn.active{background:rgba(0,229,255,.12);color:var(--cyan);border-color:rgba(0,229,255,.3)}
+.spectral-search-btn{padding:4px 10px;border-radius:4px;font-size:9px;font-family:inherit;background:rgba(0,229,255,.15);color:var(--cyan);border:1px solid rgba(0,229,255,.3);cursor:pointer}
+.spectral-search-btn:hover{background:rgba(0,229,255,.25)}
+.spectral-scenes{padding:4px 0}
+.scene-item{padding:8px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:.15s}
+.scene-item:hover{background:rgba(255,255,255,.04)}
+.scene-item.active{background:rgba(0,229,255,.08)}
+.scene-item .scene-date{font-size:10px;font-weight:600;color:#ccc}
+.scene-item .scene-meta{font-size:9px;color:#555;margin-top:2px}
+.spectral-status{padding:8px 12px;font-size:9px;color:#444;text-align:center}
 
-        .detail-label {
-            color: #888;
-            text-transform: uppercase;
-            font-size: 9px;
-            letter-spacing: 1px;
-        }
+/* Layer toggles */
+.layer-toggles{position:absolute;bottom:70px;right:16px;z-index:1000;display:flex;flex-direction:column;gap:4px}
+.layer-toggle{padding:6px 12px;border-radius:4px;font-size:10px;font-family:inherit;letter-spacing:.08em;background:rgba(0,0,0,.5);color:#555;border:1px solid transparent;cursor:pointer;display:flex;align-items:center;gap:6px;transition:.2s}
+.layer-toggle.on{border-color:rgba(0,229,255,.25)}
 
-        .detail-value {
-            color: #fff;
-            font-weight: 700;
-            font-family: 'JetBrains Mono', 'Courier New', monospace;
-        }
+/* Timeline */
+.timeline{position:absolute;bottom:0;left:320px;right:0;background:rgba(0,0,0,.92);backdrop-filter:blur(12px);border-top:1px solid var(--border);z-index:1000;display:flex;align-items:center;gap:16px;padding:10px 20px}
+.tl-controls{display:flex;align-items:center;gap:8px}
+.tl-btn{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid rgba(0,229,255,.25);background:rgba(0,229,255,.08);color:var(--cyan);cursor:pointer;font-size:12px;font-family:inherit;transition:.2s}
+.tl-btn:hover{background:rgba(0,229,255,.2)}
+.tl-btn.playing{background:rgba(255,61,61,.12);border-color:rgba(255,61,61,.3);color:var(--red)}
+.tl-skip{background:none;border:none;color:#555;cursor:pointer;font-size:14px;font-family:inherit}
+.tl-skip:hover{color:#fff}
+.tl-label{min-width:100px;font-size:11px;font-weight:700;letter-spacing:.1em}
+.tl-label.live{color:var(--green)}
+.tl-label.past{color:var(--amber)}
+.tl-label.future{color:var(--cyan)}
+.tl-slider{flex:1;display:flex;align-items:center;gap:8px}
+.tl-slider span{font-size:9px;color:#555}
+.tl-slider input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:4px;background:#1a1a2e;border-radius:4px;outline:none;cursor:pointer}
+.tl-slider input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--cyan);cursor:pointer;box-shadow:0 0 8px rgba(0,229,255,.4)}
+.tl-quick{display:flex;gap:4px}
+.tl-qbtn{padding:4px 8px;border-radius:4px;font-size:9px;font-family:inherit;background:transparent;color:#555;border:none;cursor:pointer;transition:.2s}
+.tl-qbtn.active{background:rgba(0,229,255,.15);color:var(--cyan)}
+.tl-qbtn:hover{color:#999}
 
-        /* Status Indicator */
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #4caf50;
-            display: inline-block;
-            box-shadow: 0 0 12px #4caf50;
-        }
+/* Status bar */
+.status-bar{position:absolute;bottom:52px;left:340px;font-size:10px;color:#444;z-index:1000;display:flex;align-items:center;gap:8px}
+.status-dot{width:5px;height:5px;border-radius:50%;background:var(--green)}
+.status-dot.loading{background:var(--amber);animation:pulse 1s infinite}
+.status-dot.error{background:var(--red)}
 
-        .pulse {
-            animation: pulse-animation 2s infinite;
-        }
-
-        @keyframes pulse-animation {
-            0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 12px rgba(76, 175, 80, 0); }
-            100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
-        }
-
-        /* Map UI tweaks */
-        .leaflet-marker-icon {
-            transition: transform 1.2s linear, opacity 0.5s ease;
-            will-change: transform;
-        }
-
-        /* Grid Effect */
-        .map-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 500;
-            background-image: 
-                linear-gradient(rgba(77, 170, 252, 0.05) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(77, 170, 252, 0.05) 1px, transparent 1px);
-            background-size: 100px 100px;
-        }
-
-        /* Scanning Line Effect */
-        .scanning-line {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 3px;
-            background: linear-gradient(90deg, transparent, rgba(77, 170, 252, 0.4), transparent);
-            z-index: 501;
-            animation: scan 15s linear infinite;
-            pointer-events: none;
-            opacity: 0.5;
-        }
-
-        @keyframes scan {
-            0% { top: -5%; }
-            100% { top: 105%; }
-        }
-
-        /* Layer Switcher */
-        .layer-toggle {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-        }
-
-        /* Source Status Panel */
-        .source-panel {
-            position: absolute;
-            top: 80px;
-            right: 20px;
-            z-index: 1000;
-            background: rgba(18, 20, 26, 0.85);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(77, 170, 252, 0.3);
-            border-radius: 10px;
-            padding: 14px 18px;
-            min-width: 220px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-        }
-        .source-panel h4 {
-            margin: 0 0 10px 0;
-            font-size: 9px;
-            letter-spacing: 2px;
-            color: #4daafc;
-            text-transform: uppercase;
-            font-weight: 800;
-        }
-        .src-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 7px;
-            font-size: 10px;
-        }
-        .src-name {
-            color: #aaa;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 600;
-        }
-        .src-badge {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 9px;
-            padding: 2px 7px;
-            border-radius: 4px;
-            font-weight: 700;
-        }
-        .src-badge.live   { background: rgba(76,175,80,0.2);  color: #4caf50; border: 1px solid #4caf50; }
-        .src-badge.idle   { background: rgba(150,150,150,0.1); color: #666;    border: 1px solid #444; }
-        .src-badge.error  { background: rgba(255,75,43,0.15); color: #ff4b2b; border: 1px solid #ff4b2b; }
-        .src-badge.nodata { background: rgba(255,200,0,0.1);  color: #ffc837; border: 1px solid #ffc837; }
-        .src-badge.reconnecting { background: rgba(255,200,0,0.1); color: #ffc837; border: 1px solid #ffc837; }
-    </style>
+/* Scan line */
+.scan-line{position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(0,229,255,.15),transparent);animation:scanmove 4s linear infinite;pointer-events:none;z-index:9999}
+@keyframes scanmove{0%{top:0}100%{top:100%}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.sidebar-header .src-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.sidebar-header .src-tag{font-size:8px;padding:2px 6px;border-radius:3px;background:rgba(0,229,255,.08);color:var(--cyan);border:1px solid rgba(0,229,255,.15)}
+.sidebar-header .src-tag.live{background:rgba(0,255,136,.08);color:var(--green);border-color:rgba(0,255,136,.15)}
+.sidebar-header .src-tag.warn{background:rgba(255,61,61,.08);color:var(--red);border-color:rgba(255,61,61,.15)}
+.stats-panel{position:absolute;bottom:52px;right:16px;z-index:1000;display:flex;gap:12px;font-size:9px;color:#555}
+.stat-item{display:flex;align-items:center;gap:4px}
+.stat-item .stat-val{color:var(--cyan);font-weight:600;font-variant-numeric:tabular-nums}
+/* Sidebar collapse */
+.sidebar{transition:width .25s ease,min-width .25s ease,padding .25s ease,border .25s ease}
+.sidebar.collapsed{width:0;min-width:0;padding:0;border:none;overflow:hidden}
+.sidebar.collapsed *{opacity:0;pointer-events:none;transition:opacity .15s}
+.sidebar-toggle{background:none;border:none;color:#555;cursor:pointer;font-size:12px;padding:2px 6px;margin-left:auto;transition:color .2s}
+.sidebar-toggle:hover{color:var(--cyan)}
+#sidebarExpand{position:absolute;top:16px;left:16px;z-index:1002;background:rgba(0,0,0,.85);border:1px solid var(--border);border-radius:8px;color:#888;cursor:pointer;font-size:11px;font-family:inherit;padding:8px 14px;display:none;letter-spacing:.1em;backdrop-filter:blur(8px);transition:all .2s}
+#sidebarExpand:hover{color:var(--cyan);border-color:rgba(0,229,255,.3)}
+/* SAT/SHIP mode toggles */
+.mode-toggles{position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;gap:6px}
+.mode-btn{padding:8px 18px;border-radius:8px;font-size:11px;font-weight:700;font-family:inherit;letter-spacing:.1em;background:rgba(0,0,0,.75);border:1px solid var(--border);cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:6px;backdrop-filter:blur(8px)}
+.mode-btn.sat{color:#555}.mode-btn.sat.active{background:rgba(0,229,255,.12);color:var(--cyan);border-color:rgba(0,229,255,.3);box-shadow:0 0 12px rgba(0,229,255,.15)}
+.mode-btn.ship{color:#555}.mode-btn.ship.active{background:rgba(255,171,0,.12);color:var(--amber);border-color:rgba(255,171,0,.3);box-shadow:0 0 12px rgba(255,171,0,.15)}
+/* God's Eye crosshair */
+.gods-eye-crosshair{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:999;display:none}
+.gods-eye-crosshair.active{display:block}
+.crosshair-h,.crosshair-v{position:absolute;background:rgba(0,229,255,.18)}
+.crosshair-h{top:50%;left:0;right:0;height:1px}
+.crosshair-v{left:50%;top:0;bottom:0;width:1px}
+.crosshair-info{position:absolute;bottom:70px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.88);border:1px solid rgba(0,229,255,.25);border-radius:6px;padding:8px 16px;font-size:10px;color:var(--cyan);white-space:nowrap;backdrop-filter:blur(10px);letter-spacing:.05em}
+</style>
 </head>
 <body>
-    <div class="map-overlay"></div>
-    <div class="scanning-line"></div>
-    <div id="map"></div>
+<div class="app">
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h1 style="display:flex;align-items:center;gap:6px">SAT-INTEL<button class="sidebar-toggle" id="sidebarCollapse" title="Collapse sidebar">&#x25C0;</button></h1>
+      <p id="objCount">Loading...</p>
+      <div class="src-tags">
+        <span class="src-tag live">CelesTrak TLE</span>
+        <span class="src-tag live">USGS Quakes</span>
+        <span class="src-tag live">NASA EONET</span>
+        <span class="src-tag">NASA GIBS</span>
+        <span class="src-tag">ESRI Imagery</span>
+        <span class="src-tag warn">GPS Jamming</span>
+        <span class="src-tag">ADS-B</span>
+        <span class="src-tag live" id="aisTag">AIS Live</span>
+        <span class="src-tag">AISStream</span>
+        <span class="src-tag">BarentsWatch</span>
+        <span class="src-tag">AISHub</span>
+        <span class="src-tag">Sentinel-2 STAC</span>
+      </div>
+    </div>
+    <div class="cat-tabs" id="catTabs"></div>
+    <div class="country-bar" id="countryBar"></div>
+    <div class="search-box">
+      <input id="searchInput" placeholder="Search name, NORAD ID, or country..."/>
+      <div class="search-count" id="searchCount"></div>
+    </div>
+    <div class="sat-list" id="satList"></div>
+  </div>
 
-    <div class="hud">
-        <div class="hud-item">
-            <span class="status-dot pulse"></span>
-            SAT_INTEL: ACTIVE
-        </div>
-        <div class="hud-item" style="border-left: 1px solid rgba(255, 255, 255, 0.1); padding-left: 25px;">
-            TARGETS: <span id="target-count" style="font-family: monospace; font-size: 16px;">0</span>
-        </div>
-        <div class="hud-item" style="border-left: 1px solid rgba(255, 255, 255, 0.1); padding-left: 25px; color: #888; font-size: 11px;">
-            LAT: <span id="mouse-lat">0.00</span>
-            LON: <span id="mouse-lon">0.00</span>
-        </div>
+  <!-- MAIN -->
+  <div class="main">
+    <div id="map" style="width:100%;height:100%"></div>
+
+    <!-- Mode Toggles -->
+    <div class="mode-toggles" id="modeToggles">
+      <button class="mode-btn sat active" id="satToggle">&#x1F6F0;&#xFE0F; SAT</button>
+      <button class="mode-btn ship active" id="shipToggle">&#x1F6A2; SHIP</button>
     </div>
 
-    <div class="source-panel" id="source-panel">
-        <h4>&#x25CF; Data Sources</h4>
-        <div class="src-row"><span class="src-name">AISStream</span><span class="src-badge idle" id="src-aisstream">CONNECTING</span></div>
-        <div class="src-row"><span class="src-name">Digitraffic/FI</span><span class="src-badge idle" id="src-digitraffic">IDLE</span></div>
-        <div class="src-row"><span class="src-name">BarentsWatch/NO</span><span class="src-badge idle" id="src-barentswatch">IDLE</span></div>
-        <div class="src-row"><span class="src-name">ShipXplorer</span><span class="src-badge idle" id="src-shipxplorer">IDLE</span></div>
-        <div class="src-row"><span class="src-name">ShipInfo.net</span><span class="src-badge idle" id="src-shipinfo">IDLE</span></div>
-        <div class="src-row"><span class="src-name">AISHub</span><span class="src-badge idle" id="src-aishub">IDLE</span></div>
-        <div class="src-row"><span class="src-name">Satellites</span><span class="src-badge idle" id="src-satellites">IDLE</span></div>
+    <!-- Sidebar Expand -->
+    <button id="sidebarExpand">&#x25B6; INTEL</button>
+
+    <!-- God's Eye Crosshair -->
+    <div class="gods-eye-crosshair" id="godsEyeCrosshair">
+      <div class="crosshair-h"></div>
+      <div class="crosshair-v"></div>
+      <div class="crosshair-info" id="crosshairInfo"></div>
     </div>
 
-    <div class="filters" id="filters">
-        <button class="filter-btn active" onclick="toggleFilter('all')">
-            <span class="filter-dot" style="background: #fff;"></span> ALL UNITS
-        </button>
-        <button class="filter-btn" onclick="toggleFilter('Military')">
-            <span class="filter-dot" style="background: #ff4b2b;"></span> MILITARY
-        </button>
-        <button class="filter-btn" onclick="toggleFilter('Cargo')">
-            <span class="filter-dot" style="background: #00f2fe;"></span> CARGO
-        </button>
-        <button class="filter-btn" onclick="toggleFilter('Tanker')">
-            <span class="filter-dot" style="background: #a8ff78;"></span> TANKER
-        </button>
-        <button class="filter-btn" onclick="toggleFilter('Passenger')">
-            <span class="filter-dot" style="background: #ffc837;"></span> PASSENGER
-        </button>
-        <button class="filter-btn" onclick="toggleFilter('Fishing')">
-            <span class="filter-dot" style="background: #bf5af2;"></span> FISHING
-        </button>
-        <button class="filter-btn" onclick="toggleFilter('SATELLITE')">
-            <span class="filter-dot" style="background: #ffffff; box-shadow: 0 0 10px #ffffff;"></span> SATELLITES
-        </button>
+    <!-- Country Dashboard -->
+    <div class="country-dash" id="countryDash">
+      <div class="country-dash-header">&#x1F4CA; NATION INTELLIGENCE</div>
+      <div class="country-dash-body" id="countryDashBody"></div>
+      <div class="country-dash-footer" id="countryDashFooter"></div>
     </div>
 
-    <div class="ship-details" id="ship-details">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
-            <div>
-                <div style="font-size: 10px; color: #4daafc; letter-spacing: 3px; margin-bottom: 6px; font-weight: 800;">TARGET IDENTIFIED</div>
-                <h2 id="detail-name" style="margin: 0; font-size: 22px; color: #fff; letter-spacing: 1.5px; text-transform: uppercase;">VESSEL NAME</h2>
-            </div>
-            <button onclick="closeDetails()" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #888; cursor: pointer; font-size: 20px; border-radius: 6px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">&times;</button>
+    <!-- Tracking HUD -->
+    <div class="hud" id="hud">
+      <div class="hud-header">
+        <span>&#x1F3AF; TRACKING LOCKED</span>
+        <button class="hud-close" id="hudClose">&times;</button>
+      </div>
+      <div class="hud-name"><div class="sat-n" id="hudName"></div><div class="sat-o" id="hudOwner"></div></div>
+      <div class="hud-grid" id="hudGrid"></div>
+      <div class="hud-progress">
+        <div class="bar-label"><span>ORBIT PROGRESS</span><span id="hudPct"></span></div>
+        <div class="bar"><div class="bar-fill" id="hudBar"></div></div>
+      </div>
+    </div>
+
+    <!-- Imagery Panel -->
+    <div class="imagery-toggle" id="imageryToggle">
+      <button class="imagery-btn" id="imageryBtn">&#x1F6F0; NASA GIBS</button>
+      <div class="imagery-dropdown" id="imageryDropdown"></div>
+    </div>
+
+    <!-- Spectral / NDVI Panel -->
+    <div class="spectral-toggle" id="spectralToggle">
+      <button class="spectral-btn" id="spectralBtn">&#x1F6F0; GOD'S EYE</button>
+      <div class="spectral-panel" id="spectralPanel">
+        <div class="spectral-panel-header">
+          <span>GOD'S EYE &middot; HD IMAGERY</span>
+          <button class="spectral-search-btn" id="spectralSearchBtn">&#x1F50D; SEARCH AREA</button>
         </div>
-        <div class="detail-row"><span class="detail-label">MMSI</span><span class="detail-value" id="detail-mmsi">-</span></div>
-        <div class="detail-row"><span class="detail-label">Vessel Class</span><span class="detail-value" id="detail-type">-</span></div>
-        <div class="detail-row"><span class="detail-label">Current Velocity</span><span class="detail-value" id="detail-speed">-</span></div>
-        <div class="detail-row"><span class="detail-label">Bearing</span><span class="detail-value" id="detail-course">-</span></div>
-        <div class="detail-row"><span class="detail-label">Geospatial</span><span class="detail-value" id="detail-pos">-</span></div>
-        <div class="detail-row"><span class="detail-label">Source</span><span class="detail-value" id="detail-source" style="color:#4daafc;">-</span></div>
-        <div id="prediction-msg" style="margin-top: 20px; font-size: 10px; color: #4daafc; font-weight: 700; border: 1px solid rgba(77, 170, 252, 0.4); padding: 12px; border-radius: 8px; background: rgba(77, 170, 252, 0.08); text-align: center; letter-spacing: 1px;">
-            [ PREDICTIVE_VECTOR_ACTIVE ]
-        </div>
+        <div class="spectral-combos" id="spectralCombos"></div>
+        <div class="spectral-scenes" id="spectralScenes"></div>
+        <div class="spectral-status" id="spectralStatus">Pan map &amp; click SEARCH AREA</div>
+      </div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="app.js"></script>
+    <!-- Layer Toggles -->
+    <div class="layer-toggles" id="layerToggles"></div>
+
+    <!-- Status -->
+    <div class="status-bar" id="statusBar">
+      <div class="status-dot loading" id="statusDot"></div>
+      <span id="statusText">INITIALIZING...</span>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-panel" id="statsPanel"></div>
+
+    <!-- Timeline -->
+    <div class="timeline">
+      <div class="tl-controls">
+        <button class="tl-skip" id="tlBack" title="T-60">&#x23EE;</button>
+        <button class="tl-btn" id="tlPlay">&#x25B6;</button>
+        <button class="tl-skip" id="tlFwd" title="T+60">&#x23ED;</button>
+      </div>
+      <div class="tl-label live" id="tlLabel">LIVE</div>
+      <div class="tl-slider">
+        <span>T-60</span>
+        <input type="range" id="tlSlider" min="-60" max="60" value="0"/>
+        <span>T+60</span>
+      </div>
+      <div class="tl-quick" id="tlQuick"></div>
+    </div>
+
+    <div class="scan-line"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js"></script>
+<script>
+// ============================================================
+// SAT-INTEL — Satellite Intelligence Platform — Full Client
+// ============================================================
+(function(){
+"use strict";
+
+// ── Config ──
+const CATEGORIES = [
+  {id:"active",label:"ALL"},{id:"stations",label:"STATIONS"},{id:"starlink",label:"STARLINK"},
+  {id:"oneweb",label:"ONEWEB"},{id:"iridium",label:"IRIDIUM"},{id:"globalstar",label:"GLOBALSTAR"},
+  {id:"orbcomm",label:"ORBCOMM"},{id:"weather",label:"WEATHER"},{id:"noaa",label:"NOAA"},
+  {id:"goes",label:"GOES"},{id:"gps",label:"GPS"},{id:"glonass",label:"GLONASS"},
+  {id:"galileo",label:"GALILEO"},{id:"beidou",label:"BEIDOU"},{id:"gnss",label:"GNSS ALL"},
+  {id:"military",label:"MILITARY"},{id:"science",label:"SCIENCE"},{id:"resource",label:"EARTH OBS"},
+  {id:"geo",label:"GEO BELT"},{id:"amateur",label:"AMATEUR"},{id:"cubesat",label:"CUBESAT"},
+  {id:"planet",label:"PLANET"},{id:"spire",label:"SPIRE"},{id:"radar",label:"RADAR"},
+  {id:"intelsat",label:"INTELSAT"},{id:"ses",label:"SES"},{id:"telesat",label:"TELESAT"},
+  {id:"tdrss",label:"TDRSS"},{id:"sarsat",label:"SARSAT"},{id:"molniya",label:"MOLNIYA"},
+  {id:"education",label:"EDU"},{id:"engineering",label:"ENGR"},{id:"geodetic",label:"GEODETIC"},
+  {id:"visual",label:"VISUAL"},{id:"tle-new",label:"NEW LAUNCHES"},{id:"debris",label:"DEBRIS"},
+  {id:"argos",label:"ARGOS"},{id:"dmc",label:"DMC"},{id:"satnogs",label:"SATNOGS"},
+  {id:"x-comm",label:"X-COMM"}
+];
+const COUNTRIES = [
+  {code:"US",name:"United States",flag:"\u{1F1FA}\u{1F1F8}",color:"#3b82f6"},
+  {code:"CN",name:"China",flag:"\u{1F1E8}\u{1F1F3}",color:"#ef4444"},
+  {code:"RU",name:"Russia",flag:"\u{1F1F7}\u{1F1FA}",color:"#f59e0b"},
+  {code:"IN",name:"India",flag:"\u{1F1EE}\u{1F1F3}",color:"#f97316"},
+  {code:"EU",name:"ESA (Europe)",flag:"\u{1F1EA}\u{1F1FA}",color:"#06b6d4"},
+  {code:"JP",name:"Japan / JAXA",flag:"\u{1F1EF}\u{1F1F5}",color:"#ec4899"},
+  {code:"IL",name:"Israel",flag:"\u{1F1EE}\u{1F1F1}",color:"#0ea5e9"},
+  {code:"FR",name:"France / CNES",flag:"\u{1F1EB}\u{1F1F7}",color:"#6366f1"},
+  {code:"DE",name:"Germany / DLR",flag:"\u{1F1E9}\u{1F1EA}",color:"#84cc16"},
+  {code:"KR",name:"South Korea",flag:"\u{1F1F0}\u{1F1F7}",color:"#a855f7"},
+  {code:"TR",name:"Turkey",flag:"\u{1F1F9}\u{1F1F7}",color:"#e11d48"},
+  {code:"UK",name:"United Kingdom",flag:"\u{1F1EC}\u{1F1E7}",color:"#8b5cf6"},
+  {code:"BR",name:"Brazil / INPE",flag:"\u{1F1E7}\u{1F1F7}",color:"#22c55e"},
+  {code:"CA",name:"Canada / CSA",flag:"\u{1F1E8}\u{1F1E6}",color:"#dc2626"},
+  {code:"AU",name:"Australia",flag:"\u{1F1E6}\u{1F1FA}",color:"#0d9488"},
+  {code:"IT",name:"Italy / ASI",flag:"\u{1F1EE}\u{1F1F9}",color:"#16a34a"},
+  {code:"IR",name:"Iran",flag:"\u{1F1EE}\u{1F1F7}",color:"#b91c1c"},
+  {code:"KP",name:"North Korea",flag:"\u{1F1F0}\u{1F1F5}",color:"#991b1b"},
+  {code:"PK",name:"Pakistan",flag:"\u{1F1F5}\u{1F1F0}",color:"#15803d"},
+  {code:"AE",name:"UAE",flag:"\u{1F1E6}\u{1F1EA}",color:"#c026d3"}
+];
+
+function gibsDate(){var d=new Date();d.setDate(d.getDate()-2);return d.toISOString().split("T")[0]}
+const GIBS_LAYERS = [
+  {id:"modis_terra",name:"MODIS Terra True Color",url:"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/"+gibsDate()+"/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg",res:"250m",rate:"Daily",maxZoom:9},
+  {id:"modis_aqua",name:"MODIS Aqua True Color",url:"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Aqua_CorrectedReflectance_TrueColor/default/"+gibsDate()+"/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg",res:"250m",rate:"Daily",maxZoom:9},
+  {id:"viirs_snpp",name:"VIIRS SNPP True Color",url:"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/"+gibsDate()+"/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg",res:"250m",rate:"Daily",maxZoom:9},
+  {id:"viirs_noaa20",name:"VIIRS NOAA-20 True Color",url:"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_NOAA20_CorrectedReflectance_TrueColor/default/"+gibsDate()+"/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg",res:"250m",rate:"Daily",maxZoom:9},
+  {id:"viirs_night",name:"VIIRS Night Lights (2012)",url:"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_CityLights_2012/default/2012-04-01/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpg",res:"500m",rate:"Static",maxZoom:8},
+  {id:"dnb",name:"VIIRS Day/Night Band",url:"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_DayNightBand_ENCC/default/"+gibsDate()+"/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png",res:"750m",rate:"Daily",maxZoom:8},
+  {id:"fires",name:"Active Fires (MODIS)",url:"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_Thermal_Anomalies_Day/default/"+gibsDate()+"/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png",res:"1km",rate:"Daily",maxZoom:7},
+  {id:"fires_viirs",name:"Active Fires (VIIRS)",url:"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_Thermal_Anomalies_375m_Day/default/"+gibsDate()+"/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png",res:"375m",rate:"Daily",maxZoom:8},
+  {id:"snow",name:"Snow Cover (MODIS)",url:"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_NDSI_Snow_Cover/default/"+gibsDate()+"/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png",res:"500m",rate:"Daily",maxZoom:8},
+  {id:"sst",name:"Sea Surface Temp",url:"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_L2_SST_Day/default/"+gibsDate()+"/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png",res:"1km",rate:"Daily",maxZoom:7},
+  {id:"chlor",name:"Chlorophyll Concentration",url:"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_Chlorophyll_A/default/"+gibsDate()+"/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png",res:"4km",rate:"Monthly",maxZoom:7},
+  {id:"aod",name:"Aerosol Optical Depth",url:"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_Aerosol_Optical_Depth_3km/default/"+gibsDate()+"/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png",res:"3km",rate:"Daily",maxZoom:6},
+  {id:"co",name:"Carbon Monoxide (AIRS)",url:"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/AIRS_L2_Carbon_Monoxide_500hPa_Volume_Mixing_Ratio_Day/default/"+gibsDate()+"/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png",res:"45km",rate:"Daily",maxZoom:6},
+  {id:"dust",name:"Dust Score (AIRS)",url:"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/AIRS_L2_Dust_Score_Ocean_Day/default/"+gibsDate()+"/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png",res:"45km",rate:"Daily",maxZoom:6},
+  {id:"blue_marble",name:"Blue Marble (Monthly)",url:"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_NextGeneration/default/2004-09-01/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpg",res:"500m",rate:"Monthly",maxZoom:8}
+];
+
+const JAMMING_ZONES = [
+  {id:"jam1",name:"Eastern Mediterranean",center:[35.0,34.0],radiusKm:350,type:"GPS/GNSS",severity:"high",source:"Russian EW"},
+  {id:"jam2",name:"Black Sea / Crimea",center:[44.5,33.5],radiusKm:280,type:"GPS/GNSS",severity:"high",source:"Russian EW"},
+  {id:"jam3",name:"Northern Norway / Kola",center:[69.0,33.0],radiusKm:200,type:"GPS",severity:"medium",source:"Russian EW"},
+  {id:"jam4",name:"Baltic / Kaliningrad",center:[54.7,20.5],radiusKm:180,type:"GPS/GNSS",severity:"medium",source:"Russian EW"},
+  {id:"jam5",name:"South China Sea (Spratly)",center:[10.0,114.0],radiusKm:300,type:"AIS/GPS",severity:"high",source:"PLA Navy"},
+  {id:"jam6",name:"Northern Syria / Aleppo",center:[36.2,37.1],radiusKm:150,type:"GPS",severity:"high",source:"Multiple"},
+  {id:"jam7",name:"Eastern Ukraine / Donbas",center:[48.0,38.5],radiusKm:250,type:"GPS/GNSS",severity:"high",source:"Russian EW"},
+  {id:"jam8",name:"Persian Gulf / Strait of Hormuz",center:[26.5,56.0],radiusKm:200,type:"GPS/AIS",severity:"medium",source:"IRGC"},
+  {id:"jam9",name:"Sea of Japan / Vladivostok",center:[43.0,132.0],radiusKm:150,type:"GPS",severity:"medium",source:"Russian Pacific Fleet"},
+  {id:"jam10",name:"Taiwan Strait",center:[24.5,119.5],radiusKm:120,type:"GPS/AIS",severity:"medium",source:"PLA"},
+  {id:"jam11",name:"Red Sea / Yemen Coast",center:[14.0,42.5],radiusKm:180,type:"GPS/AIS",severity:"high",source:"Houthi forces"},
+  {id:"jam12",name:"North Korea / DMZ",center:[38.3,127.0],radiusKm:100,type:"GPS",severity:"medium",source:"KPA"}
+];
+
+const ADSB_FLIGHTS = [
+  {id:"UAL234",callsign:"UAL234",type:"commercial",path:[[40.64,-73.78],[41.5,-60],[45,-40],[48,-20],[50,-5],[51.47,-0.45]],diverted:false},
+  {id:"THY718",callsign:"THY718",type:"commercial",path:[[41.26,28.74],[40.5,30],[39,32],[37.5,35.5],[35,38],[33.8,35.5]],diverted:true},
+  {id:"RSD401",callsign:"RSD401",type:"military",path:[[55.97,37.41],[54,35],[52,33],[50,33.5],[48,34],[45,33.5]],diverted:false},
+  {id:"SIA21",callsign:"SIA21",type:"commercial",path:[[1.36,103.99],[5,100],[10,95],[15,88],[20,82],[25.25,55.36]],diverted:false},
+  {id:"QFA7",callsign:"QFA7",type:"commercial",path:[[-33.95,151.18],[-25,145],[-15,130],[-5,115],[5,100],[10,85]],diverted:false},
+  {id:"FORTE12",callsign:"FORTE12",type:"surveillance",path:[[38.75,-104.53],[38,-100],[37.5,-95],[38,-85],[39,-78],[38.95,-77.46]],diverted:false},
+  {id:"AFR7",callsign:"AFR7",type:"commercial",path:[[49.01,2.55],[48,5],[45,10],[40,20],[35,30],[33.94,35.49]],diverted:false},
+  {id:"RRR8741",callsign:"RRR8741",type:"military",path:[[59.80,30.26],[58,35],[55,40],[52,45],[50,50],[48,55]],diverted:false},
+  {id:"UAVRQ4",callsign:"RQ4B",type:"surveillance",path:[[38.17,-1.17],[37,5],[36,10],[35.5,15],[35.8,20],[36,25]],diverted:false},
+  {id:"EJU322",callsign:"EJU322",type:"commercial",path:[[51.15,-0.19],[51.5,2],[52,5],[52.5,7],[52.38,9.69]],diverted:true}
+];
+
+const AIS_VESSELS = [
+  {id:"V001",name:"USS GERALD FORD (CVN-78)",type:"warship",lat:36.5,lng:14.5,course:90,speed:18,flag:"\u{1F1FA}\u{1F1F8}"},
+  {id:"V002",name:"COSCO SHANGHAI",type:"cargo",lat:1.2,lng:103.8,course:270,speed:12,flag:"\u{1F1E8}\u{1F1F3}"},
+  {id:"V003",name:"NORD STREAM TANKER",type:"tanker",lat:55.5,lng:15.0,course:180,speed:8,flag:"\u{1F1F7}\u{1F1FA}"},
+  {id:"V004",name:"INS VIKRAMADITYA (R33)",type:"warship",lat:15.4,lng:73.8,course:240,speed:20,flag:"\u{1F1EE}\u{1F1F3}"},
+  {id:"V005",name:"EVER GIVEN",type:"cargo",lat:30.0,lng:32.5,course:350,speed:10,flag:"\u{1F1F5}\u{1F1E6}"},
+  {id:"V006",name:"USS NIMITZ (CVN-68)",type:"warship",lat:25.2,lng:55.3,course:120,speed:15,flag:"\u{1F1FA}\u{1F1F8}"},
+  {id:"V007",name:"LIAONING (CV-16)",type:"warship",lat:18.5,lng:112.0,course:200,speed:16,flag:"\u{1F1E8}\u{1F1F3}"},
+  {id:"V008",name:"HMS QUEEN ELIZABETH (R08)",type:"warship",lat:50.8,lng:-1.1,course:180,speed:12,flag:"\u{1F1EC}\u{1F1E7}"},
+  {id:"V009",name:"JS IZUMO (DDH-183)",type:"warship",lat:34.0,lng:136.0,course:90,speed:14,flag:"\u{1F1EF}\u{1F1F5}"},
+  {id:"V010",name:"CHARLES DE GAULLE (R91)",type:"warship",lat:43.1,lng:5.9,course:170,speed:18,flag:"\u{1F1EB}\u{1F1F7}"},
+  {id:"V011",name:"MAERSK EINDHOVEN",type:"cargo",lat:-6.2,lng:106.8,course:310,speed:14,flag:"\u{1F1E9}\u{1F1F0}"},
+  {id:"V012",name:"AKADEMIK CHERSKIY",type:"research",lat:54.5,lng:19.5,course:270,speed:6,flag:"\u{1F1F7}\u{1F1FA}"},
+  {id:"V013",name:"MSC ANNA",type:"cargo",lat:31.2,lng:121.5,course:90,speed:16,flag:"\u{1F1E8}\u{1F1ED}"},
+  {id:"V014",name:"CRUDE OIL TANKER (VLCC)",type:"tanker",lat:22.0,lng:60.0,course:240,speed:11,flag:"\u{1F1F1}\u{1F1F7}"},
+  {id:"V015",name:"MYSTERY VESSEL (AIS OFF)",type:"unknown",lat:13.5,lng:42.0,course:0,speed:0,flag:"?"}
+];
+
+const GROUND_STATIONS = [
+  {name:"Cape Canaveral SLC",lat:28.562,lng:-80.577,type:"launch",flag:"\u{1F1FA}\u{1F1F8}"},
+  {name:"Vandenberg SFB",lat:34.742,lng:-120.573,type:"launch",flag:"\u{1F1FA}\u{1F1F8}"},
+  {name:"Kennedy Space Center",lat:28.608,lng:-80.604,type:"launch",flag:"\u{1F1FA}\u{1F1F8}"},
+  {name:"Baikonur Cosmodrome",lat:45.965,lng:63.305,type:"launch",flag:"\u{1F1F7}\u{1F1FA}"},
+  {name:"Vostochny Cosmodrome",lat:51.884,lng:128.334,type:"launch",flag:"\u{1F1F7}\u{1F1FA}"},
+  {name:"Plesetsk Cosmodrome",lat:62.927,lng:40.577,type:"launch",flag:"\u{1F1F7}\u{1F1FA}"},
+  {name:"Jiuquan SLC",lat:40.958,lng:100.291,type:"launch",flag:"\u{1F1E8}\u{1F1F3}"},
+  {name:"Xichang SLC",lat:28.246,lng:102.027,type:"launch",flag:"\u{1F1E8}\u{1F1F3}"},
+  {name:"Wenchang SLC",lat:19.614,lng:110.951,type:"launch",flag:"\u{1F1E8}\u{1F1F3}"},
+  {name:"Satish Dhawan SHAR",lat:13.720,lng:80.230,type:"launch",flag:"\u{1F1EE}\u{1F1F3}"},
+  {name:"Tanegashima Space Center",lat:30.400,lng:131.000,type:"launch",flag:"\u{1F1EF}\u{1F1F5}"},
+  {name:"Guiana Space Centre",lat:5.232,lng:-52.769,type:"launch",flag:"\u{1F1EA}\u{1F1FA}"},
+  {name:"Semnan Launch Site",lat:35.235,lng:53.921,type:"launch",flag:"\u{1F1EE}\u{1F1F7}"},
+  {name:"Sohae SLS (DPRK)",lat:39.660,lng:124.705,type:"launch",flag:"\u{1F1F0}\u{1F1F5}"},
+  {name:"Naro Space Center",lat:34.431,lng:127.536,type:"launch",flag:"\u{1F1F0}\u{1F1F7}"},
+  {name:"Palmachim AFB",lat:31.897,lng:34.690,type:"launch",flag:"\u{1F1EE}\u{1F1F1}"},
+  {name:"Pine Gap (SIGINT)",lat:-23.799,lng:133.737,type:"sigint",flag:"\u{1F1E6}\u{1F1FA}"},
+  {name:"Menwith Hill (ECHELON)",lat:54.008,lng:-1.688,type:"sigint",flag:"\u{1F1EC}\u{1F1E7}"},
+  {name:"Buckley SFB (Missile Warn)",lat:39.717,lng:-104.752,type:"sigint",flag:"\u{1F1FA}\u{1F1F8}"},
+  {name:"Diego Garcia (Naval)",lat:-7.316,lng:72.411,type:"sigint",flag:"\u{1F1FA}\u{1F1F8}"},
+  {name:"Thule Air Base (Radar)",lat:76.531,lng:-68.703,type:"radar",flag:"\u{1F1FA}\u{1F1F8}"},
+  {name:"Fylingdales (Radar)",lat:54.362,lng:-0.671,type:"radar",flag:"\u{1F1EC}\u{1F1E7}"},
+  {name:"Goldstone DSN",lat:35.427,lng:-116.890,type:"dsn",flag:"\u{1F1FA}\u{1F1F8}"},
+  {name:"Canberra DSN",lat:-35.402,lng:148.981,type:"dsn",flag:"\u{1F1E6}\u{1F1FA}"},
+  {name:"Madrid DSN",lat:40.432,lng:-4.249,type:"dsn",flag:"\u{1F1EA}\u{1F1F8}"}
+];
+
+// ── State ──
+var state = {
+  satellites: [],
+  category: "active",
+  lockedId: null,
+  search: "",
+  countryFilter: null,
+  showOrbits: true,
+  showCoverage: true,
+  showJamming: true,
+  showFlights: true,
+  showVessels: true,
+  showSatellites: true,
+  showStations: true,
+  showQuakes: true,
+  showEvents: true,
+  activeImagery: null,
+  timelineOffset: 0,
+  isPlaying: false,
+  loading: false,
+  quakes: [],
+  events: [],
+  liveShips: [],
+  shipSources: {},
+  spectralCombo: "ndvi",
+  spectralScenes: [],
+  activeScene: null,
+  spectralLoading: false
+};
+
+// ── Orbit Propagation (satellite.js) ──
+var satelliteLib = window.satellite;
+
+function getSatPos(tle1, tle2, date){
+  try{
+    var satrec = satelliteLib.twoline2satrec(tle1, tle2);
+    var pv = satelliteLib.propagate(satrec, date || new Date());
+    if(!pv.position || typeof pv.position === "boolean") return null;
+    var gmst = satelliteLib.gstime(date || new Date());
+    var gd = satelliteLib.eciToGeodetic(pv.position, gmst);
+    var vel = pv.velocity;
+    var v = Math.sqrt(vel.x*vel.x + vel.y*vel.y + vel.z*vel.z);
+    return {lat: satelliteLib.degreesLat(gd.latitude), lng: satelliteLib.degreesLong(gd.longitude), alt: gd.height, velocity: v};
+  }catch(e){return null}
+}
+
+function getOrbitPath(tle1, tle2, steps){
+  steps = steps || 200;
+  try{
+    var satrec = satelliteLib.twoline2satrec(tle1, tle2);
+    var period = (2*Math.PI)/satrec.no; // minutes
+    var now = Date.now();
+    var path = [];
+    for(var i=0;i<=steps;i++){
+      var t = new Date(now + (i/steps)*period*60000);
+      var pv = satelliteLib.propagate(satrec, t);
+      if(!pv.position || typeof pv.position === "boolean") continue;
+      var gmst = satelliteLib.gstime(t);
+      var gd = satelliteLib.eciToGeodetic(pv.position, gmst);
+      path.push([satelliteLib.degreesLat(gd.latitude), satelliteLib.degreesLong(gd.longitude)]);
+    }
+    return path;
+  }catch(e){return []}
+}
+
+function getCoverageFootprint(lat, lng, altKm, pts){
+  pts = pts || 64;
+  var R = 6371;
+  var ha = Math.acos(R/(R+altKm));
+  var fp = [];
+  for(var i=0;i<=pts;i++){
+    var b = (i/pts)*2*Math.PI;
+    var latR = Math.asin(Math.sin(lat*Math.PI/180)*Math.cos(ha)+Math.cos(lat*Math.PI/180)*Math.sin(ha)*Math.cos(b));
+    var lngR = lng*Math.PI/180 + Math.atan2(Math.sin(b)*Math.sin(ha)*Math.cos(lat*Math.PI/180), Math.cos(ha)-Math.sin(lat*Math.PI/180)*Math.sin(latR));
+    fp.push([latR*180/Math.PI, lngR*180/Math.PI]);
+  }
+  return fp;
+}
+
+function classifyOrbit(alt){
+  if(alt<2000) return "LEO";
+  if(alt<35786) return "MEO";
+  if(alt<=35800) return "GEO";
+  return "HEO";
+}
+
+function getOrbitalPeriod(tle1, tle2){
+  try{var sr=satelliteLib.twoline2satrec(tle1,tle2);return(2*Math.PI)/sr.no}catch(e){return 90}
+}
+
+// ── Owner guesser ──
+function guessOwner(name){
+  var n=name.toUpperCase();
+  if(n.includes("STARLINK")||n.includes("GPS ")||n.includes("TDRS")||n.includes("GOES ")||n.includes("NOAA")||n.includes("NROL")||n.includes("USA ")||n.includes("LANDSAT")||n.includes("TERRA")||n.includes("AQUA")||n.includes("AURA")||n.includes("SUOMI")||n.includes("GLOBALSTAR")||n.includes("ORBCOMM")||n.includes("IRIDIUM")) return "US";
+  if(n.includes("BEIDOU")||n.includes("YAOGAN")||n.includes("CZ-")||n.includes("TIANGONG")||n.includes("TIANHE")||n.includes("FENGYUN")||n.includes("GAOFEN")||n.includes("JILIN")||n.includes("SHIJIAN")||n.includes("WENTIAN")||n.includes("MENGTIAN")||n.includes("SHENZHOU")||n.includes("TIANLIAN")) return "CN";
+  if(n.includes("GLONASS")||n.includes("COSMOS")||n.includes("MOLNIYA")||n.includes("PROGRESS")||n.includes("SOYUZ")||n.includes("ELEKTRO")||n.includes("KANOPUS")||n.includes("LUCH")) return "RU";
+  if(n.includes("GALILEO")||n.includes("SENTINEL")||n.includes("METOP")||n.includes("MSG ")||n.includes("COPERNICUS")||n.includes("AEOLUS")||n.includes("SWARM")||n.includes("ENVISAT")) return "EU";
+  if(n.includes("IRNSS")||n.includes("GSAT")||n.includes("CARTOSAT")||n.includes("ASTROSAT")||n.includes("OCEANSAT")||n.includes("RISAT")||n.includes("EOS-")||n.includes("RESOURCESAT")) return "IN";
+  if(n.includes("QZSS")||n.includes("HIMAWARI")||n.includes("ALOS")||n.includes("HAYABUSA")||n.includes("GOSAT")) return "JP";
+  if(n.includes("KOMPSAT")||n.includes("KOREASAT")||n.includes("ANASIS")) return "KR";
+  if(n.includes("TURKSAT")||n.includes("GOKTURK")) return "TR";
+  if(n.includes("EROS")||n.includes("OFEQ")||n.includes("TECSAR")) return "IL";
+  if(n.includes("SPOT ")||n.includes("PLEIADES")||n.includes("CSO-")||n.includes("HELIOS")) return "FR";
+  if(n.includes("SARAH")||n.includes("ENMAP")||n.includes("SAR-LUPE")) return "DE";
+  if(n.includes("RADARSAT")||n.includes("SCISAT")) return "CA";
+  if(n.includes("COSMO-SKYMED")) return "IT";
+  if(n.includes("ONEWEB")) return "UK";
+  if(n.includes("PLANET")||n.includes("FLOCK")||n.includes("SKYSAT")||n.includes("SPIRE")||n.includes("LEMUR")) return "US";
+  if(n.includes("ISS")||n.includes("HUBBLE")) return "US";
+  return "US";
+}
+
+function getCountryInfo(code){
+  for(var i=0;i<COUNTRIES.length;i++) if(COUNTRIES[i].code===code) return COUNTRIES[i];
+  return {code:code,name:code,flag:"\u{1F30D}",color:"#6b7280"};
+}
+
+// ── Leaflet Map ──
+var map, markers={}, orbitLines=[], coveragePolys=[], jammingCircles=[], jammingPulses=[], flightMarkers={}, flightLines={}, vesselMarkers={}, stationMarkers=[], quakeMarkers=[], eventMarkers=[], imageryLayer=null;
+var pulsePhase=0, pulseAnim=0;
+
+function initMap(){
+  map = L.map("map",{center:[20,0],zoom:3,minZoom:2,maxZoom:18,zoomControl:false,attributionControl:false,worldCopyJump:true});
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:18}).addTo(map);
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",{maxZoom:18,opacity:0.5}).addTo(map);
+  L.control.zoom({position:"bottomright"}).addTo(map);
+  L.control.attribution({position:"bottomright",prefix:false}).addAttribution("ESRI | CelesTrak | NASA GIBS").addTo(map);
+}
+
+function satIcon(color, size, locked){
+  var glow = locked ? "filter:drop-shadow(0 0 8px "+color+") drop-shadow(0 0 3px "+color+");" : "filter:drop-shadow(0 0 3px "+color+");";
+  var pulse = locked ? '<circle cx="16" cy="16" r="14" fill="none" stroke="'+color+'" stroke-width="1" opacity="0.4"><animate attributeName="r" from="8" to="15" dur="1.5s" repeatCount="indefinite"/><animate attributeName="opacity" from="0.6" to="0" dur="1.5s" repeatCount="indefinite"/></circle>' : '';
+  var body = locked
+    ? '<rect x="12" y="12" width="8" height="8" rx="1" fill="'+color+'" opacity="0.95"/>'
+      +'<rect x="3" y="14" width="10" height="4" rx="1" fill="'+color+'" opacity="0.7"/>'
+      +'<rect x="19" y="14" width="10" height="4" rx="1" fill="'+color+'" opacity="0.7"/>'
+      +'<line x1="16" y1="8" x2="16" y2="12" stroke="'+color+'" stroke-width="1.5"/>'
+      +'<circle cx="16" cy="7" r="1.5" fill="'+color+'"/>'
+    : '<rect x="13" y="13" width="6" height="6" rx="1" fill="'+color+'" opacity="0.95"/>'
+      +'<rect x="5" y="14.5" width="9" height="3" rx="0.5" fill="'+color+'" opacity="0.65"/>'
+      +'<rect x="18" y="14.5" width="9" height="3" rx="0.5" fill="'+color+'" opacity="0.65"/>'
+      +'<line x1="16" y1="10" x2="16" y2="13" stroke="'+color+'" stroke-width="1"/>'
+      +'<circle cx="16" cy="9" r="1" fill="'+color+'"/>';
+  return L.divIcon({className:"sat-icon",iconSize:[size,size],iconAnchor:[size/2,size/2],
+    html:'<svg viewBox="0 0 32 32" width="'+size+'" height="'+size+'" style="'+glow+'">'+body+pulse+'</svg>'
+  });
+}
+
+// ── Pre-cached vessel icon factory ──
+var _vesselIconCache={};
+function vesselIcon(type, course){
+  var tl=(type||"").toLowerCase();
+  var rot=Math.round((course||0)/5)*5; // quantize to 5° for cache hits
+  var ck=tl+"_"+rot;
+  if(_vesselIconCache[ck]) return _vesselIconCache[ck];
+  var typeColors={warship:"#ff1744",cargo:"#42a5f5",tanker:"#ff7043",passenger:"#66bb6a",fishing:"#fdd835",tug:"#ab47bc",military:"#ff1744",research:"#00bcd4","high speed":"#e91e63",sar:"#76ff03",unknown:"#78909c"};
+  var c=typeColors[tl]||"#78909c";
+  var hull,sz=28,vb="0 0 32 32";
+  if(tl==="warship"||tl==="military"){
+    sz=32;
+    hull='<defs><linearGradient id="wg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#fff" stop-opacity=".25"/><stop offset="100%" stop-color="#000" stop-opacity=".3"/></linearGradient></defs>'
+      +'<path d="M16 1 L22 7 L23 12 L22 26 L19 30 L13 30 L10 26 L9 12 L10 7 Z" fill="'+c+'" stroke="rgba(255,255,255,.3)" stroke-width=".6"/>'
+      +'<path d="M16 1 L22 7 L23 12 L22 26 L19 30 L13 30 L10 26 L9 12 L10 7 Z" fill="url(#wg)"/>'
+      +'<rect x="13" y="8" width="6" height="5" rx="1" fill="rgba(0,0,0,.4)" stroke="rgba(255,255,255,.15)" stroke-width=".4"/>'
+      +'<rect x="14" y="14" width="4" height="3" rx=".5" fill="rgba(0,0,0,.35)"/>'
+      +'<line x1="16" y1="3" x2="16" y2="8" stroke="#fff" stroke-width="1" opacity=".7"/>'
+      +'<circle cx="16" cy="3" r="1" fill="#fff" opacity=".6"/>'
+      +'<line x1="10" y1="18" x2="7" y2="16" stroke="'+c+'" stroke-width="1.2" opacity=".7"/>'
+      +'<line x1="22" y1="18" x2="25" y2="16" stroke="'+c+'" stroke-width="1.2" opacity=".7"/>'
+      +'<rect x="15" y="18" width="2" height="7" rx=".5" fill="rgba(255,255,255,.15)"/>'
+      +'<circle cx="16" cy="27" r="1" fill="rgba(255,255,255,.15)"/>';
+  } else if(tl==="cargo"){
+    hull='<path d="M16 2 L22 8 L22 25 L19 29 L13 29 L10 25 L10 8 Z" fill="'+c+'" opacity=".92"/>'
+      +'<rect x="12" y="10" width="8" height="5" rx="1" fill="rgba(0,0,0,.3)" stroke="rgba(255,255,255,.1)" stroke-width=".3"/>'
+      +'<rect x="12" y="16" width="8" height="5" rx="1" fill="rgba(0,0,0,.25)" stroke="rgba(255,255,255,.1)" stroke-width=".3"/>'
+      +'<line x1="16" y1="10" x2="16" y2="21" stroke="rgba(255,255,255,.12)" stroke-width=".4"/>'
+      +'<rect x="14" y="4" width="4" height="3" rx="1" fill="'+c+'" opacity=".7"/>'
+      +'<line x1="16" y1="2" x2="16" y2="5" stroke="rgba(255,255,255,.4)" stroke-width=".8"/>';
+  } else if(tl==="tanker"){
+    hull='<ellipse cx="16" cy="16" rx="7" ry="13" fill="'+c+'" opacity=".9"/>'
+      +'<ellipse cx="16" cy="16" rx="5" ry="10" fill="rgba(0,0,0,.15)"/>'
+      +'<line x1="16" y1="4" x2="16" y2="28" stroke="rgba(255,255,255,.12)" stroke-width=".5"/>'
+      +'<line x1="10" y1="16" x2="22" y2="16" stroke="rgba(255,255,255,.1)" stroke-width=".4"/>'
+      +'<rect x="14" y="5" width="4" height="3" rx="1" fill="'+c+'" opacity=".7"/>';
+  } else if(tl==="passenger"){
+    hull='<rect x="9" y="4" width="14" height="24" rx="4" fill="'+c+'" opacity=".92"/>'
+      +'<rect x="11" y="7" width="10" height="3" rx="1" fill="rgba(255,255,255,.25)"/>'
+      +'<rect x="11" y="12" width="10" height="3" rx="1" fill="rgba(255,255,255,.2)"/>'
+      +'<rect x="11" y="17" width="10" height="3" rx="1" fill="rgba(255,255,255,.15)"/>'
+      +'<rect x="13" y="22" width="6" height="4" rx="1" fill="rgba(0,0,0,.2)"/>'
+      +'<circle cx="16" cy="5" r="1" fill="rgba(255,255,255,.4)"/>';
+  } else if(tl==="fishing"){
+    hull='<path d="M16 3 L21 22 L16 19 L11 22 Z" fill="'+c+'" opacity=".9"/>'
+      +'<line x1="16" y1="1" x2="16" y2="10" stroke="'+c+'" stroke-width="1.5" opacity=".8"/>'
+      +'<line x1="16" y1="3" x2="12" y2="7" stroke="'+c+'" stroke-width=".8" opacity=".5"/>'
+      +'<line x1="16" y1="4" x2="21" y2="8" stroke="'+c+'" stroke-width=".8" opacity=".5"/>'
+      +'<circle cx="16" cy="1" r="1" fill="'+c+'" opacity=".6"/>';
+  } else if(tl==="tug"){
+    hull='<rect x="10" y="8" width="12" height="16" rx="3" fill="'+c+'" opacity=".92"/>'
+      +'<rect x="12" y="4" width="8" height="6" rx="2" fill="'+c+'" opacity=".75"/>'
+      +'<rect x="14" y="2" width="4" height="3" rx="1" fill="'+c+'" opacity=".6"/>'
+      +'<line x1="10" y1="20" x2="7" y2="22" stroke="'+c+'" stroke-width="1.5" opacity=".5"/>'
+      +'<line x1="22" y1="20" x2="25" y2="22" stroke="'+c+'" stroke-width="1.5" opacity=".5"/>';
+  } else if(tl==="research"){
+    hull='<path d="M16 3 L21 8 L21 24 L18 28 L14 28 L11 24 L11 8 Z" fill="'+c+'" opacity=".9"/>'
+      +'<circle cx="16" cy="12" r="3" fill="rgba(255,255,255,.2)" stroke="rgba(255,255,255,.3)" stroke-width=".4"/>'
+      +'<line x1="16" y1="2" x2="16" y2="7" stroke="#fff" stroke-width=".8" opacity=".5"/>'
+      +'<line x1="16" y1="1" x2="13" y2="5" stroke="'+c+'" stroke-width=".6" opacity=".5"/>'
+      +'<circle cx="16" cy="1" r=".8" fill="#fff" opacity=".5"/>';
+  } else if(tl==="high speed"){
+    hull='<path d="M16 1 L23 10 L21 28 L16 30 L11 28 L9 10 Z" fill="'+c+'" opacity=".9"/>'
+      +'<path d="M16 5 L20 10 L19 22 L16 24 L13 22 L12 10 Z" fill="rgba(255,255,255,.1)"/>'
+      +'<line x1="9" y1="14" x2="6" y2="12" stroke="'+c+'" stroke-width="1" opacity=".6"/>'
+      +'<line x1="23" y1="14" x2="26" y2="12" stroke="'+c+'" stroke-width="1" opacity=".6"/>';
+  } else if(tl==="sar"){
+    hull='<path d="M16 2 L22 8 L22 24 L19 28 L13 28 L10 24 L10 8 Z" fill="'+c+'" opacity=".9"/>'
+      +'<path d="M12 11 L16 7 L20 11 L16 15 Z" fill="rgba(255,255,255,.35)" stroke="#fff" stroke-width=".5"/>'
+      +'<line x1="16" y1="2" x2="16" y2="7" stroke="#fff" stroke-width="1" opacity=".6"/>';
+  } else {
+    hull='<path d="M16 3 L22 12 L20 27 L16 30 L12 27 L10 12 Z" fill="'+c+'" opacity=".8"/>'
+      +'<circle cx="16" cy="15" r="2" fill="rgba(255,255,255,.15)"/>';
+  }
+  var icon=L.divIcon({className:"vessel-icon",iconSize:[sz,sz],iconAnchor:[sz/2,sz/2],
+    html:'<svg viewBox="'+vb+'" width="'+sz+'" height="'+sz+'" style="transform:rotate('+rot+'deg);filter:drop-shadow(0 0 4px '+c+') drop-shadow(0 0 1px rgba(0,0,0,.8))">'+hull+'</svg>'
+  });
+  _vesselIconCache[ck]=icon;
+  return icon;
+}
+
+function flightIcon(diverted){
+  var c=diverted?"#ff3d3d":"#00e5ff";
+  return L.divIcon({className:"flight-icon",iconSize:[16,16],iconAnchor:[8,8],
+    html:'<svg viewBox="0 0 24 24" width="16" height="16"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" fill="'+c+'"/></svg>'
+  });
+}
+
+function gsIcon(type){
+  var colors={launch:"#ff6600",sigint:"#ff0040",radar:"#ffee00",dsn:"#00ffcc"};
+  var c=colors[type]||"#fff";
+  return L.divIcon({className:"gs-icon",iconSize:[14,14],iconAnchor:[7,7],
+    html:'<svg viewBox="0 0 24 24" width="14" height="14"><rect x="6" y="14" width="12" height="8" fill="'+c+'" opacity="0.8"/><polygon points="12,2 6,14 18,14" fill="'+c+'" opacity="0.9"/></svg>'
+  });
+}
+
+function quakeIcon(mag){
+  var s=Math.max(12,mag*6);
+  return L.divIcon({className:"quake-icon",iconSize:[s,s],iconAnchor:[s/2,s/2],
+    html:'<svg viewBox="0 0 24 24" width="'+s+'" height="'+s+'"><circle cx="12" cy="12" r="10" fill="#ff3d3d" opacity="0.5"/><circle cx="12" cy="12" r="5" fill="#ff3d3d" opacity="0.9"/><circle cx="12" cy="12" r="10" fill="none" stroke="#ff3d3d" stroke-width="1" opacity="0.4"><animate attributeName="r" from="5" to="12" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" from="0.6" to="0" dur="2s" repeatCount="indefinite"/></circle></svg>'
+  });
+}
+
+function eonetIcon(cat){
+  var colors={"Wildfires":"#ff6600","Severe Storms":"#aa00ff","Volcanoes":"#ff0000","Sea and Lake Ice":"#00ccff","Floods":"#0066ff"};
+  var c=colors[cat]||"#ffee00";
+  return L.divIcon({className:"eonet-icon",iconSize:[16,16],iconAnchor:[8,8],
+    html:'<svg viewBox="0 0 24 24" width="16" height="16"><polygon points="12,2 4,20 20,20" fill="'+c+'" opacity="0.85"/><text x="12" y="17" text-anchor="middle" font-size="10" fill="#000" font-weight="bold">!</text></svg>'
+  });
+}
+
+function popupHtml(sat, pos, ownerInfo, orbitType){
+  return '<div style="font-family:\'JetBrains Mono\',monospace;font-size:11px;color:#e0e0e0;background:#0a0e1a;padding:10px 12px;border-radius:6px;border:1px solid rgba(0,229,255,.2);min-width:200px">'
+    +'<div style="color:#00e5ff;font-weight:bold;font-size:12px;margin-bottom:6px">'+sat.name+'</div>'
+    +'<div style="display:grid;grid-template-columns:auto 1fr;gap:2px 12px">'
+    +'<span style="color:#666">NORAD</span><span>'+sat.noradId+'</span>'
+    +'<span style="color:#666">OWNER</span><span>'+ownerInfo.flag+' '+ownerInfo.name+'</span>'
+    +'<span style="color:#666">ORBIT</span><span>'+orbitType+'</span>'
+    +'<span style="color:#666">ALT</span><span>'+pos.alt.toFixed(1)+' km</span>'
+    +'<span style="color:#666">VEL</span><span>'+pos.velocity.toFixed(2)+' km/s</span>'
+    +'<span style="color:#666">LAT</span><span>'+pos.lat.toFixed(4)+'&deg;</span>'
+    +'<span style="color:#666">LNG</span><span>'+pos.lng.toFixed(4)+'&deg;</span>'
+    +'</div></div>';
+}
+
+// ── Render Satellites (chunked for performance) ──
+var _renderChunkId = 0;
+function renderSatellites(){
+  cancelAnimationFrame(_renderChunkId);
+  if(!state.showSatellites){
+    Object.keys(markers).forEach(function(k){map.removeLayer(markers[k])});
+    markers={};
+    return;
+  }
+  var now = new Date(Date.now() + state.timelineOffset*60000);
+  var max = Math.min(state.satellites.length, 2000);
+  var idx = 0;
+  var CHUNK = 150;
+  function doChunk(){
+    var end = Math.min(idx + CHUNK, max);
+    for(var i=idx;i<end;i++){
+      var sat = state.satellites[i];
+      var pos = getSatPos(sat.line1, sat.line2, now);
+      if(!pos || isNaN(pos.lat) || isNaN(pos.lng)) continue;
+      var locked = sat.noradId === state.lockedId;
+      var oc = guessOwner(sat.name);
+      var oi = getCountryInfo(oc);
+      var m = markers[sat.noradId];
+      if(!m){
+        m = L.marker([pos.lat, pos.lng],{icon:satIcon(oi.color, locked?28:16, locked)});
+        (function(s){m.on("click",function(){toggleLock(s.noradId)})})(sat);
+        m.addTo(map);
+        markers[sat.noradId] = m;
+        m._wasLocked = locked;
+      } else {
+        m.setLatLng([pos.lat, pos.lng]);
+        if(locked !== m._wasLocked){
+          m.setIcon(satIcon(oi.color, locked?28:16, locked));
+          m._wasLocked = locked;
+        }
+      }
+      if(!m._popBound){
+        m._popBound=true;
+        (function(s,mk){
+          mk.on("mouseover",function(){
+            var p2=getSatPos(s.line1,s.line2,new Date(Date.now()+state.timelineOffset*60000));
+            if(p2){var oc2=guessOwner(s.name);var oi2=getCountryInfo(oc2);var ot2=classifyOrbit(p2.alt);mk.bindPopup(popupHtml(s,p2,oi2,ot2),{className:"intel-popup",maxWidth:300})}
+          });
+        })(sat,m);
+      }
+    }
+    idx = end;
+    if(idx < max) _renderChunkId = requestAnimationFrame(doChunk);
+  }
+  _renderChunkId = requestAnimationFrame(doChunk);
+}
+
+function clearOrbitLines(){
+  orbitLines.forEach(function(l){map.removeLayer(l)});
+  orbitLines=[];
+}
+function clearCoverage(){
+  coveragePolys.forEach(function(p){map.removeLayer(p)});
+  coveragePolys=[];
+}
+
+function renderLockedOverlays(){
+  clearOrbitLines();
+  clearCoverage();
+  if(!state.lockedId) return;
+  var sat = state.satellites.find(function(s){return s.noradId===state.lockedId});
+  if(!sat) return;
+  var now = new Date(Date.now()+state.timelineOffset*60000);
+  var pos = getSatPos(sat.line1, sat.line2, now);
+  if(!pos) return;
+  var oc = guessOwner(sat.name);
+  var oi = getCountryInfo(oc);
+
+  // Orbit path
+  if(state.showOrbits){
+    var path = getOrbitPath(sat.line1, sat.line2, 200);
+    if(path.length>1){
+      var segs=[[]];
+      for(var i=1;i<path.length;i++){
+        if(Math.abs(path[i][1]-path[i-1][1])>180) segs.push([]);
+        segs[segs.length-1].push(path[i]);
+      }
+      segs.forEach(function(seg){
+        if(seg.length<2) return;
+        var ln=L.polyline(seg,{color:oi.color,weight:1.5,opacity:0.6,dashArray:"4 4"}).addTo(map);
+        orbitLines.push(ln);
+      });
+    }
+  }
+
+  // Coverage
+  if(state.showCoverage){
+    var fp = getCoverageFootprint(pos.lat, pos.lng, pos.alt);
+    if(fp.length>0){
+      var poly=L.polygon(fp,{color:oi.color,fillColor:oi.color,fillOpacity:0.06,weight:1,opacity:0.3}).addTo(map);
+      coveragePolys.push(poly);
+    }
+  }
+
+  // Fly to
+  map.setView([pos.lat, pos.lng], map.getZoom(), {animate:true});
+}
+
+// ── Jamming Zones ──
+function renderJamming(){
+  jammingCircles.forEach(function(c){map.removeLayer(c)});
+  jammingPulses.forEach(function(c){map.removeLayer(c)});
+  jammingCircles=[];jammingPulses=[];
+  cancelAnimationFrame(pulseAnim);
+  if(!state.showJamming) return;
+  var sevColors={high:"#ff3d3d",medium:"#ffab00",low:"#facc15"};
+  JAMMING_ZONES.forEach(function(z){
+    var c=sevColors[z.severity];
+    var circle=L.circle(z.center,{radius:z.radiusKm*1000,color:c,fillColor:c,fillOpacity:0.08,weight:1.5,dashArray:"6 4"}).addTo(map);
+    circle.bindPopup('<div style="font-family:monospace;font-size:11px;color:#fff;background:#111;padding:8px;border-radius:4px"><div style="color:'+c+';font-weight:bold">'+z.type+' JAMMING</div><div>'+z.name+'</div><div>Radius: '+z.radiusKm+'km</div><div>Severity: '+z.severity.toUpperCase()+'</div>'+(z.source?'<div style="color:#888">SRC: '+z.source+'</div>':'')+'</div>',{className:"intel-popup"});
+    jammingCircles.push(circle);
+    var pulse=L.circle(z.center,{radius:z.radiusKm*1000,color:c,fillColor:"transparent",weight:2,opacity:0}).addTo(map);
+    jammingPulses.push(pulse);
+  });
+  pulsePhase=0;
+  function animPulse(){
+    pulsePhase=(pulsePhase+0.02)%1;
+    jammingPulses.forEach(function(p,i){
+      var z=JAMMING_ZONES[i]; if(!z) return;
+      p.setRadius(z.radiusKm*1000*(0.6+pulsePhase*0.4));
+      p.setStyle({opacity:0.5*(1-pulsePhase)});
+    });
+    pulseAnim=requestAnimationFrame(animPulse);
+  }
+  pulseAnim=requestAnimationFrame(animPulse);
+}
+
+// ── ADS-B Flights ──
+function renderFlights(){
+  Object.keys(flightMarkers).forEach(function(k){map.removeLayer(flightMarkers[k])});
+  Object.keys(flightLines).forEach(function(k){map.removeLayer(flightLines[k])});
+  flightMarkers={};flightLines={};
+  if(!state.showFlights) return;
+  ADSB_FLIGHTS.forEach(function(f){
+    var last=f.path[f.path.length-1];
+    var m=L.marker(last,{icon:flightIcon(f.diverted)}).addTo(map);
+    m.bindPopup('<div style="font-family:monospace;font-size:11px;color:#fff;background:#111;padding:8px;border-radius:4px"><div style="color:'+(f.diverted?"#ff3d3d":"#00e5ff")+';font-weight:bold">'+f.callsign+'</div><div>Type: '+f.type+'</div>'+(f.diverted?'<div style="color:#ff3d3d">&#x26A0; DIVERTED</div>':'')+'</div>',{className:"intel-popup"});
+    flightMarkers[f.id]=m;
+    var ln=L.polyline(f.path,{color:f.diverted?"#ff3d3d":"#00e5ff",weight:1.5,opacity:0.5,dashArray:f.diverted?"8 4":undefined}).addTo(map);
+    flightLines[f.id]=ln;
+  });
+}
+
+// ── AIS Vessels (live from server, viewport-culled, smooth) ──
+var _vesselTypeColors={warship:"#ff1744",cargo:"#42a5f5",tanker:"#ff7043",passenger:"#66bb6a",fishing:"#fdd835",tug:"#ab47bc",military:"#ff1744",research:"#00bcd4","high speed":"#e91e63",sar:"#76ff03",unknown:"#78909c"};
+var _vesselRenderTimer=0;
+function renderVessels(){
+  cancelAnimationFrame(_vesselRenderTimer);
+  _vesselRenderTimer=requestAnimationFrame(_renderVesselsNow);
+}
+function _renderVesselsNow(){
+  if(!state.showVessels){
+    Object.keys(vesselMarkers).forEach(function(k){map.removeLayer(vesselMarkers[k])});
+    vesselMarkers={};
+    return;
+  }
+  var ships = state.liveShips.length > 0 ? state.liveShips : AIS_VESSELS;
+  var isLive = state.liveShips.length > 0;
+  var bounds = map.getBounds().pad(0.3);
+  var newKeys = {};
+  var count = 0;
+  var zoom = map.getZoom();
+  var maxVisible = zoom >= 8 ? 1200 : zoom >= 5 ? 600 : 300;
+  for(var i=0;i<ships.length;i++){
+    var v=ships[i];
+    var lat = v.lat || v.latitude;
+    var lng = v.lng || v.lon || v.longitude;
+    if(!lat || !lng) continue;
+    var key = v.mmsi||v.id||("v_"+lat+"_"+lng);
+    newKeys[key] = true;
+    if(!bounds.contains([lat,lng])) continue;
+    if(count++ >= maxVisible) continue;
+    var vtype = v.type || "unknown";
+    var m = vesselMarkers[key];
+    if(m){
+      m.setLatLng([lat,lng]);
+      if(m._vCourse !== (v.course||0)){
+        m.setIcon(vesselIcon(vtype, v.course));
+        m._vCourse = v.course||0;
+      }
+    } else {
+      m = L.marker([lat,lng],{icon:vesselIcon(vtype, v.course)}).addTo(map);
+      m._vCourse = v.course||0;
+      vesselMarkers[key] = m;
+      (function(vessel,marker,live){
+        marker.on("mouseover",function(){
+          var nameStr=vessel.name||vessel.mmsi||"Unknown";
+          var countryStr=vessel.country||vessel.flag||"";
+          var srcStr=vessel.source||(live?"AIS":"Static");
+          var tc=_vesselTypeColors[String(vessel.type||"").toLowerCase()]||"#78909c";
+          var typeLabel=(vessel.type||"Unknown").toUpperCase();
+          marker.bindPopup('<div style="font-family:monospace;font-size:11px;color:#fff;background:#0d0d0d;padding:10px;border-radius:6px;border:1px solid '+tc+'33">'
+            +'<div style="border-left:3px solid '+tc+';padding-left:8px;margin-bottom:4px"><span style="color:'+tc+';font-weight:bold;font-size:12px">'+countryStr+' '+nameStr+'</span></div>'
+            +'<div style="display:grid;grid-template-columns:auto 1fr;gap:2px 8px;margin-top:4px">'
+            +'<span style="color:#666">TYPE</span><span style="color:'+tc+'">'+typeLabel+'</span>'
+            +'<span style="color:#666">HDG</span><span>'+(vessel.course||0)+'&deg;</span>'
+            +'<span style="color:#666">SPD</span><span>'+(vessel.speed||0)+' kn</span>'
+            +(vessel.mmsi?'<span style="color:#666">MMSI</span><span style="color:#888">'+vessel.mmsi+'</span>':'')
+            +'</div>'
+            +'<div style="color:#555;font-size:9px;margin-top:5px;border-top:1px solid #222;padding-top:4px">SRC: '+srcStr+'</div>'
+            +'</div>',{className:"intel-popup"}).openPopup();
+        });
+      })(v,m,isLive);
+    }
+  }
+  var keys=Object.keys(vesselMarkers);
+  for(var j=0;j<keys.length;j++){
+    if(!newKeys[keys[j]]){map.removeLayer(vesselMarkers[keys[j]]);delete vesselMarkers[keys[j]]}
+  }
+}
+
+function fetchShips(){
+  fetch("/api/ships")
+    .then(function(r){if(!r.ok) throw new Error("HTTP "+r.status); return r.json()})
+    .then(function(data){
+      if(data.ships && data.ships.length > 0){
+        state.liveShips = data.ships;
+        state.shipSources = data.sources || {};
+        renderVessels();
+        updateStats();
+      }
+    })
+    .catch(function(err){console.debug("Ships fetch:",err)});
+}
+
+// ── Ground Stations ──
+function renderStations(){
+  stationMarkers.forEach(function(m){map.removeLayer(m)});
+  stationMarkers=[];
+  if(!state.showStations) return;
+  GROUND_STATIONS.forEach(function(gs){
+    var m=L.marker([gs.lat,gs.lng],{icon:gsIcon(gs.type)}).addTo(map);
+    m.bindPopup('<div style="font-family:monospace;font-size:11px;color:#fff;background:#111;padding:8px;border-radius:4px"><div style="color:#ff6600;font-weight:bold">'+gs.name+'</div><div>'+gs.country+'</div><div>Type: '+gs.type.toUpperCase()+'</div><div>Operator: '+gs.operator+'</div></div>',{className:"intel-popup"});
+    stationMarkers.push(m);
+  });
+}
+
+// ── Earthquakes ──
+function renderQuakes(){
+  quakeMarkers.forEach(function(m){map.removeLayer(m)});
+  quakeMarkers=[];
+  if(!state.showQuakes) return;
+  state.quakes.forEach(function(q){
+    var m=L.marker([q.lat,q.lng],{icon:quakeIcon(q.mag)}).addTo(map);
+    m.bindPopup('<div style="font-family:monospace;font-size:11px;color:#fff;background:#111;padding:8px;border-radius:4px"><div style="color:#ff3d3d;font-weight:bold">M'+q.mag.toFixed(1)+' EARTHQUAKE</div><div>'+q.place+'</div><div>Depth: '+q.depth.toFixed(1)+' km</div><div>'+new Date(q.time).toUTCString()+'</div></div>',{className:"intel-popup"});
+    quakeMarkers.push(m);
+  });
+}
+
+// ── NASA EONET Events ──
+function renderEvents(){
+  eventMarkers.forEach(function(m){map.removeLayer(m)});
+  eventMarkers=[];
+  if(!state.showEvents) return;
+  state.events.forEach(function(ev){
+    if(!ev.lat||!ev.lng) return;
+    var m=L.marker([ev.lat,ev.lng],{icon:eonetIcon(ev.category)}).addTo(map);
+    m.bindPopup('<div style="font-family:monospace;font-size:11px;color:#fff;background:#111;padding:8px;border-radius:4px"><div style="color:#ffee00;font-weight:bold">'+ev.title+'</div><div>Category: '+ev.category+'</div><div>'+new Date(ev.date).toUTCString()+'</div>'+(ev.source?'<div>Source: <a href="'+ev.source+'" target="_blank" style="color:#00e5ff">link</a></div>':'')+'</div>',{className:"intel-popup"});
+    eventMarkers.push(m);
+  });
+}
+
+// ── Imagery Layer ──
+function updateImagery(){
+  if(imageryLayer){map.removeLayer(imageryLayer);imageryLayer=null}
+  if(!state.activeImagery) return;
+  var layer=GIBS_LAYERS.find(function(l){return l.id===state.activeImagery});
+  if(layer){
+    imageryLayer=L.tileLayer(layer.url,{maxZoom:layer.maxZoom,opacity:0.7,attribution:"NASA GIBS"}).addTo(map);
+  }
+}
+
+// ── UI Builders ──
+function buildCatTabs(){
+  var el=document.getElementById("catTabs"); el.innerHTML="";
+  CATEGORIES.forEach(function(cat){
+    var btn=document.createElement("button");
+    btn.className="cat-btn"+(state.category===cat.id?" active":"");
+    btn.textContent=cat.label;
+    btn.onclick=function(){state.category=cat.id;clearAllMarkers();fetchTLE();buildCatTabs()};
+    el.appendChild(btn);
+  });
+}
+
+function buildCountryBar(){
+  var el=document.getElementById("countryBar"); el.innerHTML="";
+  COUNTRIES.forEach(function(c){
+    var btn=document.createElement("button");
+    btn.className="country-btn"+(state.countryFilter===c.code?" active":"");
+    btn.textContent=c.flag+" "+c.code;
+    btn.onclick=function(){state.countryFilter=state.countryFilter===c.code?null:c.code;buildCountryBar();renderSatList()};
+    el.appendChild(btn);
+  });
+}
+
+function renderSatList(){
+  var el=document.getElementById("satList"); el.innerHTML="";
+  var q=state.search.toLowerCase();
+  var filtered=state.satellites.filter(function(s){
+    var ms=!q||s.name.toLowerCase().includes(q)||s.noradId.includes(state.search);
+    var mc=!state.countryFilter||guessOwner(s.name)===state.countryFilter;
+    return ms&&mc;
+  });
+  document.getElementById("searchCount").textContent=filtered.length.toLocaleString()+" results";
+  var max=Math.min(filtered.length, 300);
+  for(var i=0;i<max;i++){
+    (function(sat){
+      var btn=document.createElement("button");
+      btn.className="sat-item"+(sat.noradId===state.lockedId?" locked":"");
+      btn.innerHTML='<div class="name">'+sat.name+'</div><div class="meta">NORAD '+sat.noradId+'</div>';
+      btn.onclick=function(){toggleLock(sat.noradId)};
+      el.appendChild(btn);
+    })(filtered[i]);
+  }
+  if(filtered.length>300){
+    var more=document.createElement("div");
+    more.style.cssText="text-align:center;color:#555;font-size:10px;padding:16px";
+    more.textContent="+"+(filtered.length-300).toLocaleString()+" more — use search to narrow";
+    el.appendChild(more);
+  }
+}
+
+function renderCountryDash(){
+  var counts={};
+  state.satellites.forEach(function(s){var c=guessOwner(s.name);counts[c]=(counts[c]||0)+1});
+  var stats=COUNTRIES.map(function(c){return{code:c.code,flag:c.flag,color:c.color,count:counts[c.code]||0}}).filter(function(c){return c.count>0}).sort(function(a,b){return b.count-a.count});
+  var maxC=Math.max.apply(null,stats.map(function(s){return s.count}).concat([1]));
+  var body=document.getElementById("countryDashBody"); body.innerHTML="";
+  stats.slice(0,12).forEach(function(c){
+    body.innerHTML+='<div class="cd-row"><div class="cd-label"><span>'+c.flag+' '+c.code+'</span><span class="cd-cnt">'+c.count.toLocaleString()+'</span></div><div class="cd-bar"><div class="cd-bar-fill" style="width:'+(c.count/maxC*100)+'%;background:'+c.color+'"></div></div></div>';
+  });
+  document.getElementById("countryDashFooter").textContent="TOTAL: "+state.satellites.length.toLocaleString()+" TRACKED OBJECTS | "+state.quakes.length+" QUAKES | "+state.events.length+" EVENTS";
+}
+
+function updateStats(){
+  var el=document.getElementById("statsPanel");
+  if(!el) return;
+  var shipCnt = state.liveShips.length || AIS_VESSELS.length;
+  el.innerHTML='<div class="stat-item"><div class="stat-val">'+state.satellites.length.toLocaleString()+'</div><div>SATELLITES</div></div>'
+    +'<div class="stat-item"><div class="stat-val">'+CATEGORIES.length+'</div><div>CATEGORIES</div></div>'
+    +'<div class="stat-item"><div class="stat-val">'+shipCnt.toLocaleString()+'</div><div>SHIPS</div></div>'
+    +'<div class="stat-item"><div class="stat-val">'+state.quakes.length+'</div><div>QUAKES</div></div>'
+    +'<div class="stat-item"><div class="stat-val">'+state.events.length+'</div><div>EVENTS</div></div>'
+    +'<div class="stat-item"><div class="stat-val">'+GROUND_STATIONS.length+'</div><div>STATIONS</div></div>'
+    +'<div class="stat-item"><div class="stat-val">'+JAMMING_ZONES.length+'</div><div>JAMMED</div></div>';
+}
+
+// ── God's Eye / HD Imagery (real tile layers + STAC) ──
+var spectralLayer = null;
+var godsEyeLayer = null;
+var godsEyeActive = "";
+
+var GODS_EYE_MODES = [
+  {id:"s2hd",label:"TRUE COLOR HD",desc:"Sentinel-2 Cloudless 10m Resolution"},
+  {id:"ndvi",label:"NDVI",desc:"MODIS 8-Day Vegetation Index 250m"},
+  {id:"fires_hd",label:"ACTIVE FIRES",desc:"VIIRS 375m Thermal Anomalies"},
+  {id:"night_hd",label:"NIGHT LIGHTS",desc:"VIIRS Day/Night Band"}
+];
+
+function ndviDate8(){
+  var d=new Date();d.setDate(d.getDate()-10);
+  var y=d.getFullYear(),m0=new Date(y,0,1);
+  var doy=Math.floor((d-m0)/86400000)+1;
+  var p=Math.floor((doy-1)/8)*8+1;
+  var r=new Date(m0.getTime()+(p-1)*86400000);
+  return r.toISOString().split("T")[0];
+}
+
+function buildSpectralCombos(){
+  var el=document.getElementById("spectralCombos");el.innerHTML="";
+  GODS_EYE_MODES.forEach(function(m){
+    var btn=document.createElement("button");
+    btn.className="combo-btn"+(godsEyeActive===m.id?" active":"");
+    btn.textContent=m.label;
+    btn.title=m.desc;
+    btn.onclick=function(){toggleGodsEyeLayer(m.id)};
+    el.appendChild(btn);
+  });
+}
+
+function toggleGodsEyeLayer(id){
+  if(godsEyeLayer){map.removeLayer(godsEyeLayer);godsEyeLayer=null}
+  var ch=document.getElementById("godsEyeCrosshair");
+  if(godsEyeActive===id){
+    godsEyeActive="";
+    if(ch) ch.classList.remove("active");
+    buildSpectralCombos();
+    updateGodsEyeInfo();
+    return;
+  }
+  godsEyeActive=id;
+  if(ch) ch.classList.add("active");
+  var dt=gibsDate();
+  if(id==="s2hd"){
+    godsEyeLayer=L.tileLayer("https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2021_3857/default/GoogleMapsCompatible/{z}/{y}/{x}.jpg",{maxZoom:15,opacity:0.92}).addTo(map);
+  } else if(id==="ndvi"){
+    godsEyeLayer=L.tileLayer("https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_NDVI_8Day/default/"+ndviDate8()+"/GoogleMapsCompatible_Level9/{z}/{y}/{x}.png",{maxZoom:9,opacity:0.85}).addTo(map);
+  } else if(id==="fires_hd"){
+    godsEyeLayer=L.tileLayer("https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_Thermal_Anomalies_375m_Day/default/"+dt+"/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png",{maxZoom:8,opacity:0.85}).addTo(map);
+  } else if(id==="night_hd"){
+    godsEyeLayer=L.tileLayer("https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_DayNightBand_ENCC/default/"+dt+"/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png",{maxZoom:8,opacity:0.85}).addTo(map);
+  }
+  buildSpectralCombos();
+  updateGodsEyeInfo();
+}
+
+function updateGodsEyeInfo(){
+  var el=document.getElementById("crosshairInfo");
+  if(!el) return;
+  if(!godsEyeActive){el.textContent="";return}
+  var c=map.getCenter(),z=map.getZoom();
+  var mpp=156543.03*Math.cos(c.lat*Math.PI/180)/Math.pow(2,z);
+  var mode=GODS_EYE_MODES.find(function(m){return m.id===godsEyeActive})||{label:"?"};
+  el.textContent=mode.label+" | "+c.lat.toFixed(4)+"\u00b0N "+c.lng.toFixed(4)+"\u00b0E | Z"+z+" ~"+(mpp<1000?mpp.toFixed(0)+"m/px":(mpp/1000).toFixed(1)+"km/px");
+}
+
+function searchSpectralScenes(){
+  var bounds=map.getBounds();
+  var bbox=[bounds.getWest().toFixed(4),bounds.getSouth().toFixed(4),bounds.getEast().toFixed(4),bounds.getNorth().toFixed(4)].join(",");
+  var statusEl=document.getElementById("spectralStatus");
+  statusEl.textContent="Searching Sentinel-2 scenes...";
+  state.spectralLoading=true;
+  fetch("/api/stac-search?bbox="+encodeURIComponent(bbox)+"&limit=8&max_cloud=20")
+    .then(function(r){return r.json()})
+    .then(function(data){
+      state.spectralLoading=false;
+      var features=data.features||[];
+      state.spectralScenes=features;
+      renderSpectralScenes();
+      statusEl.textContent=features.length?features.length+" scenes found":"No clear scenes found — try a smaller area";
+    })
+    .catch(function(err){
+      state.spectralLoading=false;
+      statusEl.textContent="Search failed: "+err.message;
+    });
+}
+
+function renderSpectralScenes(){
+  var el=document.getElementById("spectralScenes"); el.innerHTML="";
+  state.spectralScenes.forEach(function(f,idx){
+    var props=f.properties||{};
+    var dt=props.datetime||"";
+    var cloud=props["eo:cloud_cover"];
+    var div=document.createElement("div");
+    div.className="scene-item"+(state.activeScene===f?" active":"");
+    div.innerHTML='<div class="scene-date">'+(dt?new Date(dt).toLocaleDateString("en-US",{year:"numeric",month:"short",day:"numeric"}):"Unknown date")+'</div>'
+      +'<div class="scene-meta">Cloud: '+(cloud!=null?cloud.toFixed(1)+"%":"N/A")+" &middot; "+f.id+'</div>';
+    div.onclick=function(){
+      state.activeScene=f;
+      renderSpectralScenes();
+      applySpectralOverlay(f);
+    };
+    el.appendChild(div);
+  });
+}
+
+function applySpectralOverlay(feature){
+  if(spectralLayer){map.removeLayer(spectralLayer);spectralLayer=null}
+  if(!feature) return;
+  var geom=feature.geometry;
+  if(geom && geom.coordinates && geom.coordinates[0]){
+    var coords=geom.coordinates[0].map(function(c){return [c[1],c[0]]});
+    spectralLayer=L.polygon(coords,{color:"#00e5ff",fillColor:"#00e5ff",fillOpacity:0.1,weight:2,dashArray:"6 4"}).addTo(map);
+    map.fitBounds(spectralLayer.getBounds(),{padding:[50,50]});
+  } else if(feature.bbox && feature.bbox.length>=4){
+    var bnds=[[feature.bbox[1],feature.bbox[0]],[feature.bbox[3],feature.bbox[2]]];
+    spectralLayer=L.rectangle(bnds,{color:"#00e5ff",fillColor:"#00e5ff",fillOpacity:0.1,weight:2,dashArray:"6 4"}).addTo(map);
+    map.fitBounds(bnds,{padding:[50,50]});
+  }
+  if(!godsEyeActive) toggleGodsEyeLayer("s2hd");
+  document.getElementById("spectralStatus").textContent="Scene footprint shown \u00b7 HD view active";
+}
+
+function clearSpectralOverlay(){
+  if(spectralLayer){map.removeLayer(spectralLayer);spectralLayer=null}
+  state.activeScene=null;
+  renderSpectralScenes();
+}
+
+function updateHUD(){
+  var hud=document.getElementById("hud");
+  if(!state.lockedId){hud.classList.remove("open");return}
+  var sat=state.satellites.find(function(s){return s.noradId===state.lockedId});
+  if(!sat){hud.classList.remove("open");return}
+  hud.classList.add("open");
+  var now=new Date(Date.now()+state.timelineOffset*60000);
+  var pos=getSatPos(sat.line1, sat.line2, now);
+  if(!pos) return;
+  var oc=guessOwner(sat.name), oi=getCountryInfo(oc), ot=classifyOrbit(pos.alt), period=getOrbitalPeriod(sat.line1,sat.line2);
+  document.getElementById("hudName").textContent=sat.name;
+  document.getElementById("hudOwner").textContent=oi.flag+" "+oi.name;
+  document.getElementById("hudGrid").innerHTML=[
+    row("NORAD ID",sat.noradId),row("ORBIT",ot),
+    row("LATITUDE",pos.lat.toFixed(4)+"°"),row("LONGITUDE",pos.lng.toFixed(4)+"°"),
+    row("ALTITUDE",pos.alt.toFixed(1)+" km",true),row("VELOCITY",pos.velocity.toFixed(2)+" km/s",true),
+    row("PERIOD",period.toFixed(1)+" min")
+  ].join("");
+  var pct=((Date.now()%(period*60000))/(period*60000)*100);
+  document.getElementById("hudPct").textContent=pct.toFixed(0)+"%";
+  document.getElementById("hudBar").style.width=pct+"%";
+}
+function row(lbl,val,hl){return '<div class="hud-row"><span class="lbl">'+lbl+'</span><span class="val'+(hl?" hl":"")+'">'+val+'</span></div>'}
+
+function buildImageryPanel(){
+  var dd=document.getElementById("imageryDropdown"); dd.innerHTML='<div class="imagery-dropdown-header">&#x1F6F0; EARTH OBSERVATION</div>';
+  // Base map option
+  var base=document.createElement("button");
+  base.className="imagery-option"+(!state.activeImagery?" active":"");
+  base.innerHTML='<div class="io-name">BASE MAP ONLY</div><div class="io-meta">ESRI World Imagery</div>';
+  base.onclick=function(){state.activeImagery=null;updateImagery();buildImageryPanel()};
+  dd.appendChild(base);
+  GIBS_LAYERS.forEach(function(layer){
+    var btn=document.createElement("button");
+    btn.className="imagery-option"+(state.activeImagery===layer.id?" active":"");
+    btn.innerHTML='<div class="io-name">'+layer.name+'</div><div class="io-meta">'+layer.res+' &middot; '+layer.rate+'</div>';
+    btn.onclick=function(){state.activeImagery=state.activeImagery===layer.id?null:layer.id;updateImagery();buildImageryPanel()};
+    dd.appendChild(btn);
+  });
+  dd.innerHTML+='<div style="padding:8px 16px;border-top:1px solid var(--border);font-size:9px;color:#444">Powered by NASA GIBS WMTS</div>';
+}
+
+function buildLayerToggles(){
+  var el=document.getElementById("layerToggles"); el.innerHTML="";
+  var layers=[
+    {label:"ORBITS",key:"showOrbits",color:"var(--cyan)"},
+    {label:"COVERAGE",key:"showCoverage",color:"var(--green)"},
+    {label:"GPS JAM",key:"showJamming",color:"var(--red)"},
+    {label:"ADS-B",key:"showFlights",color:"var(--cyan)"},
+    {label:"AIS",key:"showVessels",color:"var(--amber)"},
+    {label:"STATIONS",key:"showStations",color:"#ff6600"},
+    {label:"QUAKES",key:"showQuakes",color:"#ff3d3d"},
+    {label:"EVENTS",key:"showEvents",color:"#ffee00"}
+  ];
+  layers.forEach(function(l){
+    var btn=document.createElement("button");
+    var on=state[l.key];
+    btn.className="layer-toggle"+(on?" on":"");
+    btn.style.color=on?l.color:"#555";
+    if(on) btn.style.borderColor=l.color.replace("var(--","rgba(").replace(")",",.25)");
+    btn.innerHTML=(on?"&#x1F441;":"&#x1F441;&#x200D;&#x1F5E8;")+" "+l.label;
+    btn.onclick=function(){
+      state[l.key]=!state[l.key];
+      buildLayerToggles();
+      if(l.key==="showJamming") renderJamming();
+      if(l.key==="showFlights") renderFlights();
+      if(l.key==="showVessels") renderVessels();
+      if(l.key==="showStations") renderStations();
+      if(l.key==="showQuakes") renderQuakes();
+      if(l.key==="showEvents") renderEvents();
+      if(l.key==="showOrbits"||l.key==="showCoverage") renderLockedOverlays();
+    };
+    el.appendChild(btn);
+  });
+}
+
+function buildTimeline(){
+  var qs=document.getElementById("tlQuick"); qs.innerHTML="";
+  [-30,-15,0,15,30].forEach(function(t){
+    var btn=document.createElement("button");
+    btn.className="tl-qbtn"+(state.timelineOffset===t?" active":"");
+    btn.textContent=t===0?"NOW":(t>0?"+"+t:t);
+    btn.onclick=function(){setTimeline(t)};
+    qs.appendChild(btn);
+  });
+}
+
+function updateTimelineLabel(){
+  var el=document.getElementById("tlLabel");
+  var o=state.timelineOffset;
+  if(o===0){el.textContent="LIVE";el.className="tl-label live"}
+  else{
+    var sign=o>0?"+":"";
+    el.textContent="T"+sign+o+"m";
+    el.className="tl-label "+(o<0?"past":"future");
+  }
+}
+
+function setTimeline(v){
+  state.timelineOffset=v;
+  state.isPlaying=false;
+  document.getElementById("tlSlider").value=v;
+  document.getElementById("tlPlay").innerHTML="&#x25B6;";
+  document.getElementById("tlPlay").classList.remove("playing");
+  updateTimelineLabel();
+  buildTimeline();
+  renderSatellites();
+  renderLockedOverlays();
+  updateHUD();
+}
+
+function toggleLock(id){
+  state.lockedId = state.lockedId===id ? null : id;
+  renderSatList();
+  renderLockedOverlays();
+  updateHUD();
+  // Update marker icons
+  Object.keys(markers).forEach(function(nid){
+    var m=markers[nid];
+    var sat=state.satellites.find(function(s){return s.noradId===nid});
+    if(!sat) return;
+    var locked=nid===state.lockedId;
+    if(locked!==m._wasLocked){
+      var oc=guessOwner(sat.name);
+      var oi=getCountryInfo(oc);
+      m.setIcon(satIcon(oi.color, locked?28:16, locked));
+      m._wasLocked=locked;
+    }
+  });
+}
+
+function clearAllMarkers(){
+  Object.keys(markers).forEach(function(k){map.removeLayer(markers[k])});
+  markers={};
+  clearOrbitLines();
+  clearCoverage();
+}
+
+function setStatus(loading, text){
+  var dot=document.getElementById("statusDot");
+  dot.className="status-dot"+(loading?" loading":"");
+  document.getElementById("statusText").textContent=text;
+}
+
+// ── Fetch TLE ──
+function fetchTLE(){
+  state.loading=true;
+  setStatus(true,"FETCHING TLE...");
+  fetch("/api/tle?category="+encodeURIComponent(state.category))
+    .then(function(r){if(!r.ok) throw new Error("HTTP "+r.status); return r.json()})
+    .then(function(data){
+      if(data.satellites && data.satellites.length>0){
+        state.satellites=data.satellites;
+        var src=data.source||"LIVE";
+        var label=src==="fallback"?"FALLBACK":"LIVE";
+        document.getElementById("objCount").textContent=data.count.toLocaleString()+" OBJECTS TRACKED · "+label;
+        renderSatList();
+        renderSatellites();
+        renderCountryDash();
+        buildLayerToggles();
+        updateStats();
+        setStatus(false, data.count.toLocaleString()+" OBJECTS · "+label+" SGP4 PROPAGATION");
+      }
+    })
+    .catch(function(err){
+      console.error("TLE fetch failed:",err);
+      setStatus(false,"ERROR: "+err.message);
+      document.getElementById("statusDot").classList.add("error");
+    })
+    .finally(function(){state.loading=false});
+}
+
+function fetchQuakes(){
+  fetch("/api/quakes")
+    .then(function(r){if(!r.ok) throw new Error("HTTP "+r.status); return r.json()})
+    .then(function(data){
+      state.quakes=data.quakes||[];
+      renderQuakes();
+      updateStats();
+    })
+    .catch(function(err){console.error("Quakes fetch:",err)});
+}
+
+function fetchEvents(){
+  fetch("/api/events")
+    .then(function(r){if(!r.ok) throw new Error("HTTP "+r.status); return r.json()})
+    .then(function(data){
+      state.events=data.events||[];
+      renderEvents();
+      updateStats();
+    })
+    .catch(function(err){console.error("Events fetch:",err)});
+}
+
+// ── Main init ──
+function init(){
+  initMap();
+  buildCatTabs();
+  buildCountryBar();
+  buildImageryPanel();
+  buildLayerToggles();
+  buildTimeline();
+  updateTimelineLabel();
+
+  // Search
+  document.getElementById("searchInput").oninput=function(e){state.search=e.target.value;renderSatList()};
+
+  // HUD close
+  document.getElementById("hudClose").onclick=function(){state.lockedId=null;renderSatList();renderLockedOverlays();updateHUD();
+    Object.keys(markers).forEach(function(nid){var m=markers[nid];if(m._wasLocked){var sat=state.satellites.find(function(s){return s.noradId===nid});if(sat){var oc=guessOwner(sat.name);var oi=getCountryInfo(oc);m.setIcon(satIcon(oi.color,16,false));m._wasLocked=false}}});
+  };
+
+  // Imagery toggle
+  document.getElementById("imageryBtn").onclick=function(){
+    var dd=document.getElementById("imageryDropdown");
+    dd.classList.toggle("open");
+    document.getElementById("imageryBtn").classList.toggle("active",dd.classList.contains("open"));
+  };
+
+  // Spectral / God's Eye panel
+  buildSpectralCombos();
+  document.getElementById("spectralBtn").onclick=function(){
+    var panel=document.getElementById("spectralPanel");
+    panel.classList.toggle("open");
+    document.getElementById("spectralBtn").classList.toggle("active",panel.classList.contains("open"));
+  };
+  document.getElementById("spectralSearchBtn").onclick=function(){
+    searchSpectralScenes();
+  };
+
+  // Sidebar collapse
+  document.getElementById("sidebarCollapse").onclick=function(){
+    var sb=document.getElementById("sidebar");
+    var exp=document.getElementById("sidebarExpand");
+    sb.classList.add("collapsed");
+    exp.style.display="block";
+    document.querySelector(".timeline").style.left="0";
+    document.querySelector(".status-bar").style.left="20px";
+    setTimeout(function(){map.invalidateSize()},300);
+  };
+  document.getElementById("sidebarExpand").onclick=function(){
+    var sb=document.getElementById("sidebar");
+    sb.classList.remove("collapsed");
+    this.style.display="none";
+    document.querySelector(".timeline").style.left="320px";
+    document.querySelector(".status-bar").style.left="340px";
+    setTimeout(function(){map.invalidateSize()},300);
+  };
+
+  // SAT/SHIP mode toggles
+  document.getElementById("satToggle").onclick=function(){
+    state.showSatellites=!state.showSatellites;
+    this.classList.toggle("active",state.showSatellites);
+    if(!state.showSatellites){
+      Object.keys(markers).forEach(function(k){map.removeLayer(markers[k])});
+      markers={};
+      clearOrbitLines();clearCoverage();
+    } else { renderSatellites(); }
+  };
+  document.getElementById("shipToggle").onclick=function(){
+    state.showVessels=!state.showVessels;
+    this.classList.toggle("active",state.showVessels);
+    renderVessels();
+  };
+
+  // God's Eye map move + debounced vessel re-render
+  var _moveTimer=0;
+  map.on("moveend",function(){
+    if(godsEyeActive) updateGodsEyeInfo();
+    clearTimeout(_moveTimer);
+    _moveTimer=setTimeout(renderVessels,120);
+  });
+
+  // Timeline controls
+  document.getElementById("tlSlider").oninput=function(e){setTimeline(parseInt(e.target.value))};
+  document.getElementById("tlBack").onclick=function(){setTimeline(-60)};
+  document.getElementById("tlFwd").onclick=function(){setTimeline(60)};
+  var playInterval=null;
+  document.getElementById("tlPlay").onclick=function(){
+    state.isPlaying=!state.isPlaying;
+    var btn=document.getElementById("tlPlay");
+    if(state.isPlaying){
+      btn.innerHTML="&#x23F8;";btn.classList.add("playing");
+      playInterval=setInterval(function(){
+        state.timelineOffset++;
+        if(state.timelineOffset>60){state.timelineOffset=60;state.isPlaying=false;btn.innerHTML="&#x25B6;";btn.classList.remove("playing");clearInterval(playInterval);return}
+        document.getElementById("tlSlider").value=state.timelineOffset;
+        updateTimelineLabel();buildTimeline();renderSatellites();renderLockedOverlays();updateHUD();
+      },500);
+    } else {
+      btn.innerHTML="&#x25B6;";btn.classList.remove("playing");
+      if(playInterval) clearInterval(playInterval);
+    }
+  };
+
+  // Fetch data
+  fetchTLE();
+  renderJamming();
+  renderFlights();
+  renderVessels();
+  fetchShips();
+  renderStations();
+  fetchQuakes();
+  fetchEvents();
+  updateStats();
+
+  // Auto-refresh every 5 min
+  setInterval(fetchTLE, 300000);
+  // Refresh quakes & events every 10 min
+  setInterval(fetchQuakes, 600000);
+  setInterval(fetchEvents, 600000);
+  // Refresh ships every 30s
+  setInterval(fetchShips, 30000);
+
+  // Live position update every 2s
+  setInterval(function(){
+    renderSatellites();
+    updateHUD();
+    // Update coverage for locked
+    if(state.lockedId && state.showCoverage && coveragePolys.length>0){
+      var sat=state.satellites.find(function(s){return s.noradId===state.lockedId});
+      if(sat){
+        var now=new Date(Date.now()+state.timelineOffset*60000);
+        var pos=getSatPos(sat.line1, sat.line2, now);
+        if(pos){
+          var fp=getCoverageFootprint(pos.lat, pos.lng, pos.alt);
+          coveragePolys.forEach(function(p){p.setLatLngs(fp)});
+          map.setView([pos.lat,pos.lng],map.getZoom(),{animate:true});
+        }
+      }
+    }
+  }, 2000);
+}
+
+// Start
+if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",init);
+else init();
+
+})();
+</script>
 </body>
 </html>

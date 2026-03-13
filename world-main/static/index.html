@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SoTaNik_AI Surveillance — Global Intelligence Dashboard</title>
+  <meta name="description" content="SoTaNik_AI Surveillance — Real-time geopolitical intelligence powered by public data sources." />
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- Marker Cluster CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <!-- Leaflet full-screen plugin CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.fullscreen@3.0.2/Control.FullScreen.css" />
+  
+  <!-- CesiumJS for 3D Globe -->
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.110/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.110/Build/Cesium/Cesium.js"></script>
+
+  <!-- Deck.gl and MapLibre -->
+  <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/@deck.gl/core@8.9.33/dist.min.js"></script>
+  <script src="https://unpkg.com/@deck.gl/layers@8.9.33/dist.min.js"></script>
+  <script src="https://unpkg.com/@deck.gl/leaflet@8.9.33/dist.min.js"></script>
+
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     BOOT LOADING SCREEN
+════════════════════════════════════════════ -->
+<div id="boot-screen" aria-hidden="true">
+  <!-- Animated background grid -->
+  <div class="boot-grid"></div>
+  <!-- Corner decorations -->
+  <div class="boot-corner boot-corner-tl"></div>
+  <div class="boot-corner boot-corner-tr"></div>
+  <div class="boot-corner boot-corner-bl"></div>
+  <div class="boot-corner boot-corner-br"></div>
+  <!-- Scan line -->
+  <div class="boot-scanline"></div>
+
+  <div class="boot-center">
+    <!-- Logo block -->
+    <div class="boot-logo-wrap">
+      <div class="boot-ring boot-ring-outer"></div>
+      <div class="boot-ring boot-ring-inner"></div>
+      <div class="boot-logo-core">
+        <div class="boot-logo-icon">⬡</div>
+      </div>
+    </div>
+
+    <div class="boot-brand">
+      <div class="boot-brand-name">SoTaNik<span class="boot-accent">_AI</span></div>
+      <div class="boot-brand-tag">GLOBAL SURVEILLANCE NETWORK</div>
+    </div>
+
+    <!-- Horizontal rule -->
+    <div class="boot-divider"></div>
+
+    <!-- Boot log terminal -->
+    <div class="boot-terminal" id="boot-terminal">
+      <div class="boot-log-line" id="bl-0">&nbsp;</div>
+      <div class="boot-log-line" id="bl-1">&nbsp;</div>
+      <div class="boot-log-line" id="bl-2">&nbsp;</div>
+      <div class="boot-log-line" id="bl-4">&nbsp;</div>
+      <div class="boot-log-line" id="bl-5">&nbsp;</div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="boot-progress-wrap">
+      <div class="boot-progress-track">
+        <div class="boot-progress-fill" id="boot-progress-fill"></div>
+        <div class="boot-progress-glow" id="boot-progress-glow"></div>
+      </div>
+      <div class="boot-progress-pct" id="boot-progress-pct">0%</div>
+    </div>
+
+    <!-- Bottom status row -->
+    <div class="boot-status-row">
+      <span class="boot-status-item" id="bst-osint">OSINT</span>
+      <span class="boot-status-item" id="bst-sigint">SIGINT</span>
+      <span class="boot-status-item" id="bst-geoint">GEOINT</span>
+      <span class="boot-status-item" id="bst-humint">HUMINT</span>
+      <span class="boot-status-item" id="bst-cyber">CYBER</span>
+    </div>
+  </div>
+
+  <!-- Classification banner -->
+  <div class="boot-classification">
+    ▌ UNCLASSIFIED // FOR OFFICIAL USE ONLY ▐ &nbsp;|&nbsp; SoTaNik_AI v2.1 ▌
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     HEADER
+════════════════════════════════════════════ -->
+<header class="header">
+  <div class="header-left">
+    <div class="logo">
+      <span class="logo-icon">🛰</span>
+      <span class="logo-text">SoTaNik<span class="logo-accent">_AI</span></span>
+      <span class="logo-tag">SURVEILLANCE</span>
+    </div>
+    <div class="header-time" id="header-time"></div>
+  </div>
+
+  <nav class="header-nav">
+    <button class="nav-btn active" data-view="map" onclick="setView('map')">🗺 MAP</button>
+    <button class="nav-btn" data-view="news" onclick="setView('news')">📡 NEWS</button>
+    <button class="nav-btn" data-view="markets" onclick="setView('markets')">📈 MARKETS</button>
+    <button class="nav-btn" data-view="threats" onclick="setView('threats')">🛡 THREATS</button>
+    <button class="nav-btn" data-view="infra" onclick="setView('infra')">🌐 INFRA</button>
+    <button class="nav-btn" data-view="breaches" onclick="showBreachesOnMap()">🔓 BREACHES</button>
+  </nav>
+
+  <div class="header-right">
+    <div class="status-indicators" id="status-indicators">
+      <span class="status-dot" id="s-eq" title="Earthquakes">EQ</span>
+      <span class="status-dot" id="s-news" title="News Feeds">NEWS</span>
+      <span class="status-dot" id="s-markets" title="Markets">MKT</span>
+      <span class="status-dot" id="s-threats" title="Threat Intel">TI</span>
+      <span class="status-dot" id="s-av" title="Aviation">AV</span>
+    </div>
+    <button class="btn-icon" onclick="refreshAll()" title="Refresh all data">↺</button>
+    <button class="btn-icon" onclick="toggleFullscreen()" id="fullscreen-btn" title="Toggle fullscreen (F11)">⛶</button>
+    <button class="btn-icon" onclick="toggleTheme()" id="theme-toggle">☀</button>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════
+     MAIN LAYOUT
+════════════════════════════════════════════ -->
+<div class="main-layout" id="main-layout">
+
+  <!-- ─── LEFT SIDEBAR ─── -->
+  <aside class="sidebar sidebar-left" id="sidebar-left">
+
+    <!-- Active Signals Panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">⚡ ACTIVE SIGNALS</span>
+        <span class="panel-badge" id="signals-count">—</span>
+      </div>
+      <div class="panel-body" id="signals-list">
+        <div class="loading-pulse">Loading signals…</div>
+      </div>
+    </div>
+
+    <!-- Earthquakes Panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">🌍 EARTHQUAKES</span>
+        <div class="panel-controls">
+          <select class="mini-select" id="eq-window" onchange="loadEarthquakes()">
+            <option value="hour">1H</option>
+            <option value="day" selected>24H</option>
+            <option value="week">7D</option>
+          </select>
+        </div>
+        <span class="panel-badge" id="eq-count">—</span>
+      </div>
+      <div class="panel-body" id="eq-list">
+        <div class="loading-pulse">Loading…</div>
+      </div>
+    </div>
+
+    <!-- Disasters Panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">🌪 DISASTERS</span>
+        <span class="panel-badge" id="disaster-count">—</span>
+      </div>
+      <div class="panel-body" id="disaster-list">
+        <div class="loading-pulse">Loading…</div>
+      </div>
+    </div>
+
+    <!-- Wildfires Panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">🔥 WILDFIRES</span>
+        <span class="panel-badge" id="fire-count">—</span>
+      </div>
+      <div class="panel-body" id="fire-list">
+        <div class="loading-pulse">Loading…</div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ─── MAP AREA ─── -->
+  <div class="map-container" id="map-container">
+
+    <!-- Sidebar toggle ear-buttons (always visible on the map edges) -->
+    <button class="sidebar-ear left-ear" id="toggle-left-ear"
+            onclick="toggleSidebar('left')" title="Toggle left panel (←)">◀</button>
+    <button class="sidebar-ear right-ear" id="toggle-right-ear"
+            onclick="toggleSidebar('right')" title="Toggle right panel (→)">▶</button>
+
+    <!-- Map Layer Controls -->
+    <div class="map-controls">
+      <!-- Base-map switcher -->
+      <div class="layer-group basemap-group">
+        <button class="layer-btn basemap-btn active" id="bm-dark"      onclick="switchBasemap('dark')"      title="Dark (default)">🌑 Dark</button>
+        <button class="layer-btn basemap-btn"        id="bm-satellite" onclick="switchBasemap('satellite')" title="Satellite (ESRI)">🛰 Satellite</button>
+        <button class="layer-btn basemap-btn"        id="bm-street"    onclick="switchBasemap('street')"    title="OpenStreetMap">🗺 Street</button>
+        <button class="layer-btn basemap-btn"        id="bm-terrain"   onclick="switchBasemap('terrain')"   title="Terrain">⛰ Terrain</button>
+        <button class="layer-btn basemap-btn"        id="bm-hybrid"    onclick="switchBasemap('hybrid')"    title="Hybrid satellite+labels">🌍 Hybrid</button>
+        <button class="layer-btn basemap-btn"        id="bm-google_street" onclick="switchBasemap('google_street')" title="Google Street">🏘️ Google St</button>
+        <button class="layer-btn basemap-btn"        id="bm-google_satellite" onclick="switchBasemap('google_satellite')" title="Google Satellite">🛰️ Google Sat</button>
+        <button class="layer-btn basemap-btn"        id="bm-google_traffic" onclick="switchBasemap('google_traffic')" title="Google Traffic">🚥 Traffic</button>
+        <button class="layer-btn" id="toggle-3d-btn" onclick="toggle3dMode()" title="Toggle 3D Globe">🌎 3D Globe</button>
+      </div>
+
+      <div class="layer-group shader-group">
+        <button class="layer-btn shader-btn" id="sh-crt"  onclick="toggleShader('crt')"  title="CRT Scan Lines">📺 CRT</button>
+        <button class="layer-btn shader-btn" id="sh-nvg"  onclick="toggleShader('nvg')"  title="Night Vision (NVG)">👓 NVG</button>
+        <button class="layer-btn shader-btn" id="sh-flir" onclick="toggleShader('flir')" title="FLIR Thermal">🔥 FLIR</button>
+      </div>
+      <button class="layer-btn" onclick="toggleIntelMenu()" id="intel-toggle">🧠 Intelligence ▾</button>
+      <div class="layer-group" id="intel-menu" style="display:none">
+        <button class="layer-btn active" id="layer-eq" onclick="toggleLayer('earthquakes')">🌍 EQ</button>
+        <button class="layer-btn active" id="layer-fires" onclick="toggleLayer('fires')">🔥 Fires</button>
+        <button class="layer-btn active" id="layer-disasters" onclick="toggleLayer('disasters')">🌪 Events</button>
+        <button class="layer-btn" id="layer-aviation" onclick="toggleLayer('aviation')">✈ AV</button>
+        <button class="layer-btn" id="layer-adsbMilitary" onclick="toggleLayer('adsbMilitary')">⚔ MIL-AIR</button>
+        <button class="layer-btn" id="layer-vehicleFlow"  onclick="toggleLayer('vehicleFlow')">🚗 FLOW</button>
+         <button class="layer-btn" id="layer-transit"      onclick="toggleLayer('transit')">🚌 Transit</button>
+        <button class="layer-btn" id="layer-cables"   onclick="toggleLayer('cables')">🌊 CABLES</button>
+        <button class="layer-btn" id="layer-chokepoints" onclick="toggleLayer('chokepoints')">⚓ Choke</button>
+        <button class="layer-btn" id="layer-nuclear" onclick="toggleLayer('nuclear')">☢ Nuclear</button>
+        <button class="layer-btn" id="layer-datacenters" onclick="toggleLayer('datacenters')">🖥 DCs</button>
+        <button class="layer-btn" id="layer-military" onclick="toggleLayer('military')">⚔ Bases</button>
+        <button class="layer-btn" id="layer-pipelines" onclick="toggleLayer('pipelines')">🛢 Pipes</button>
+        <button class="layer-btn" id="layer-ports" onclick="toggleLayer('ports')">⚓ Ports</button>
+        <button class="layer-btn" id="layer-waterways" onclick="toggleLayer('waterways')">🌊 Straits</button>
+        <button class="layer-btn" id="layer-hotspots" onclick="toggleLayer('hotspots')">🔥 Hotspots</button>
+        <button class="layer-btn" id="layer-conflicts" onclick="toggleLayer('conflicts')">💥 Conflicts</button>
+        <button class="layer-btn" id="layer-gamma" onclick="toggleLayer('gamma')">☢ Gamma</button>
+        <button class="layer-btn" id="layer-apt" onclick="toggleLayer('apt')">💻 APT</button>
+        <button class="layer-btn" id="layer-satellites" onclick="toggleLayer('satellites')">🛰 Sats</button>
+        <button class="layer-btn" id="layer-breachesMap" onclick="toggleLayer('breachesMap')">🔓 Breaches</button>
+        <!-- Weather layers -->
+        <button class="layer-btn" id="layer-weather" onclick="toggleLayer('weather')">🌧 Radar</button>
+        <button class="layer-btn" id="layer-cloud" onclick="toggleLayer('cloud')">☁ Cloud/IR</button>
+        <button class="layer-btn" id="layer-traffic" onclick="toggleLayer('traffic')">🚥 Traffic</button>
+      </div>
+    </div>
+
+    <!-- Map Region Presets -->
+    <div class="region-presets">
+      <button class="region-btn" onclick="flyToRegion('world')">🌐 Global</button>
+      <button class="region-btn" onclick="flyToRegion('mena')">🕌 MENA</button>
+      <button class="region-btn" onclick="flyToRegion('europe')">🏰 Europe</button>
+      <button class="region-btn" onclick="flyToRegion('asia')">🗼 Asia</button>
+      <button class="region-btn" onclick="flyToRegion('americas')">🗽 Americas</button>
+      <button class="region-btn" onclick="flyToRegion('africa')">🌍 Africa</button>
+    </div>
+
+    <!-- Leaflet Map -->
+    <div id="map"></div>
+    <!-- 3D Globe Container -->
+    <div id="cesiumContainer" style="display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 100;"></div>
+
+    <!-- Map Stats Bar -->
+    <div class="map-stats-bar">
+      <span id="map-stats-eq">EQ: —</span>
+      <span id="map-stats-fires">Fires: —</span>
+      <span id="map-stats-av">Aircraft: —</span>
+      <span id="map-stats-coords">0.000° N, 0.000° E</span>
+      <span id="map-stats-zoom">Z4</span>
+    </div>
+  </div>
+
+  <!-- ─── RIGHT SIDEBAR ─── -->
+  <aside class="sidebar sidebar-right" id="sidebar-right">
+
+    <!-- News Feed Panel -->
+    <div class="panel" id="panel-news">
+      <div class="panel-header">
+        <span class="panel-title">📰 WORLD NEWS</span>
+        <span class="panel-badge" id="news-count">—</span>
+      </div>
+      <div class="panel-filters">
+        <button class="filter-btn active" onclick="filterNews('all')">ALL</button>
+        <button class="filter-btn" onclick="filterNews('critical')">CRITICAL</button>
+        <button class="filter-btn" onclick="filterNews('high')">HIGH</button>
+        <button class="filter-btn" onclick="filterNews('medium')">MED</button>
+      </div>
+      <div class="panel-body news-panel" id="news-list">
+        <div class="loading-pulse">Loading feeds…</div>
+      </div>
+    </div>
+
+    <!-- Markets Panel -->
+    <div class="panel" id="panel-markets">
+      <div class="panel-header">
+        <span class="panel-title">📈 MARKETS</span>
+        <span class="panel-badge" id="markets-badge">—</span>
+      </div>
+      <div class="panel-filters">
+        <button class="filter-btn active" onclick="filterMarkets('all')">ALL</button>
+        <button class="filter-btn" onclick="filterMarkets('indices')">INDICES</button>
+        <button class="filter-btn" onclick="filterMarkets('crypto')">CRYPTO</button>
+        <button class="filter-btn" onclick="filterMarkets('commodities')">COMMOD</button>
+      </div>
+      <div class="panel-body" id="markets-list">
+        <div class="loading-pulse">Loading markets…</div>
+      </div>
+    </div>
+
+    <!-- Fear & Greed -->
+    <div class="panel panel-compact">
+      <div class="panel-header">
+        <span class="panel-title">😨 FEAR & GREED</span>
+      </div>
+      <div class="panel-body" id="fear-greed-panel">
+        <div class="loading-pulse">Loading…</div>
+      </div>
+    </div>
+
+    <!-- Cyber Threats Panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">🛡 CYBER THREATS</span>
+        <span class="panel-badge" id="cyber-count">—</span>
+      </div>
+      <div class="panel-filters">
+        <button class="filter-btn active" onclick="filterCyber('ransomware')">RANSOM</button>
+        <button class="filter-btn" onclick="filterCyber('c2')">C2 IPs</button>
+        <button class="filter-btn" onclick="filterCyber('malware')">MALWARE</button>
+      </div>
+      <div class="panel-body" id="cyber-list">
+        <div class="loading-pulse">Loading…</div>
+      </div>
+    </div>
+
+  </aside>
+</div>
+
+<!-- ─── ALTERNATE VIEWS ─── -->
+<div class="view-panel" id="view-news" style="display:none;">
+  <div class="view-header">
+    <h2>📡 Global News Intelligence</h2>
+    <span id="news-view-count">—</span> articles across <span id="news-view-sources">7</span> sources
+  </div>
+  <div class="news-grid" id="news-grid-full"></div>
+</div>
+
+<div class="view-panel" id="view-markets" style="display:none;flex-direction:column;">
+  <!-- Ticker tape -->
+  <div class="bb-ticker-wrap">
+    <div class="bb-ticker" id="bb-ticker-tape">Loading market data…</div>
+  </div>
+  <!-- Terminal header -->
+  <div class="bb-header">
+    <h2 style="margin:0;font-size:1rem;letter-spacing:2px;color:#fbbf24">🛰 SoTaNik_AI TERMINAL</h2>
+    <!-- Stock search -->
+    <div class="bb-search-row">
+      <input id="bb-stock-input" class="bb-search-input" placeholder="Ticker: AAPL, MSFT, NVDA…" autocomplete="off"/>
+      <button class="bb-search-btn" onclick="bbSearchStock()">GO</button>
+    </div>
+    <span class="last-updated" id="markets-updated">—</span>
+    <button class="filter-btn" onclick="loadMarketsGlobal()">↻ REFRESH</button>
+  </div>
+  <!-- Tab nav -->
+  <div class="bb-tabs">
+    <button class="bb-tab active" onclick="switchBBTab('overview')"  id="bbtab-overview">📊 OVERVIEW</button>
+    <button class="bb-tab" onclick="switchBBTab('stocks')"    id="bbtab-stocks">📈 STOCKS</button>
+    <button class="bb-tab" onclick="switchBBTab('india')"     id="bbtab-india">🇮🇳 INDIA</button>
+    <button class="bb-tab" onclick="switchBBTab('crypto')"    id="bbtab-crypto">₿ CRYPTO</button>
+    <button class="bb-tab" onclick="switchBBTab('forex')"     id="bbtab-forex">💱 FOREX</button>
+    <button class="bb-tab" onclick="switchBBTab('bonds')"     id="bbtab-bonds">🏛 BONDS</button>
+    <button class="bb-tab" onclick="switchBBTab('heatmap')"   id="bbtab-heatmap">🌡 HEATMAP</button>
+    <button class="bb-tab" onclick="switchBBTab('macro')"     id="bbtab-macro">🌐 MACRO</button>
+    <button class="bb-tab" onclick="switchBBTab('sec')"       id="bbtab-sec">📋 SEC FILINGS</button>
+  </div>
+
+  <!-- TAB: OVERVIEW -->
+  <div class="bb-tab-panel" id="bbpanel-overview">
+    <div class="bb-layout">
+      <div class="bb-col bb-col-wide" id="bb-main-grid">
+        <div class="loading-pulse">Loading global markets…</div>
+      </div>
+      <div class="bb-col bb-col-narrow">
+        <div id="bb-crypto-grid"><div class="loading-pulse">Loading crypto…</div></div>
+        <div id="bb-fear-greed" style="margin-top:12px"><div class="loading-pulse">Loading sentiment…</div></div>
+        <div id="bb-mempool-panel" style="margin-top:12px">
+          <div class="bb-section-title">₿ Bitcoin Mempool Fees (sat/vB)</div>
+          <div id="bb-mempool-data" class="loading-pulse">Loading…</div>
+        </div>
+        <div id="bb-debt-panel" style="margin-top:12px">
+          <div class="bb-section-title">🇺🇸 US National Debt</div>
+          <div id="bb-debt-data" class="loading-pulse">Loading…</div>
+        </div>
+        <div id="bb-btcchain-panel" style="margin-top:12px">
+          <div class="bb-section-title">⛓ BTC On-Chain</div>
+          <div id="bb-btcchain-data" class="loading-pulse">Loading…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: STOCKS -->
+  <div class="bb-tab-panel" id="bbpanel-stocks" style="display:none;">
+    <!-- Candlestick chart -->
+    <div id="bb-chart-section" style="margin-bottom:12px">
+      <div class="bb-section">
+        <div class="bb-section-title" style="display:flex;align-items:center;gap:12px">
+          📈 PRICE CHART
+          <span id="bb-chart-ticker-label" style="color:#fbbf24;font-size:0.85rem"></span>
+          <select id="bb-chart-interval" class="bb-select" onchange="bbLoadChart()" style="margin-left:auto">
+            <option value="5m">5m</option>
+            <option value="15m">15m</option>
+            <option value="1h">1h</option>
+            <option value="1d" selected>1D</option>
+            <option value="1wk">1W</option>
+            <option value="1mo">1M</option>
+          </select>
+          <select id="bb-chart-range" class="bb-select" onchange="bbLoadChart()">
+            <option value="1d">1 Day</option>
+            <option value="5d">5 Days</option>
+            <option value="1mo">1 Month</option>
+            <option value="3mo" selected>3 Months</option>
+            <option value="1y">1 Year</option>
+            <option value="5y">5 Years</option>
+          </select>
+        </div>
+        <div id="bb-chart-container" style="height:320px;background:#0f172a;border-radius:6px">
+          <div class="bb-empty" id="bb-chart-placeholder">Search a ticker above to view its chart</div>
+        </div>
+      </div>
+    </div>
+    <div class="bb-layout">
+      <div class="bb-col bb-col-wide">
+        <div id="bb-stock-detail"><div class="bb-empty">Enter a ticker above and press GO — e.g. AAPL, MSFT, NVDA, TSLA, ^GSPC</div></div>
+        <div id="bb-fundamentals" style="margin-top:12px"></div>
+        <div id="bb-options" style="margin-top:12px"></div>
+        <div id="bb-stock-news" style="margin-top:12px"></div>
+      </div>
+      <div class="bb-col bb-col-narrow">
+        <div id="bb-analyst"></div>
+        <div id="bb-institutions" style="margin-top:12px"></div>
+        <div id="bb-insiders" style="margin-top:12px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: CRYPTO -->
+  <div class="bb-tab-panel" id="bbpanel-crypto" style="display:none;">
+    <div class="bb-layout">
+      <div class="bb-col bb-col-wide">
+        <div id="bb-binance-grid"><div class="loading-pulse">Loading Binance…</div></div>
+      </div>
+      <div class="bb-col bb-col-narrow">
+        <div id="bb-crypto-global"><div class="loading-pulse">Loading global…</div></div>
+        <div id="bb-coingecko-full" style="margin-top:12px"><div class="loading-pulse">Loading CoinGecko…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: FOREX -->
+  <div class="bb-tab-panel" id="bbpanel-forex" style="display:none;">
+    <div id="bb-forex-table"><div class="loading-pulse">Loading FX rates…</div></div>
+  </div>
+
+  <!-- TAB: INDIA (NSE) -->
+  <div class="bb-tab-panel" id="bbpanel-india" style="display:none;">
+    <div class="bb-layout">
+      <div class="bb-col bb-col-wide">
+        <div class="bb-section">
+          <div class="bb-section-title" style="display:flex;align-items:center;gap:12px">
+            🇮🇳 NSE India — Live Quote
+            <input id="nse-symbol-input" class="bb-search-input" placeholder="Symbol: RELIANCE, TCS, INFY…" style="width:220px;margin-left:auto" autocomplete="off"/>
+            <button class="bb-search-btn" onclick="bbSearchNSE()">GO</button>
+          </div>
+          <div id="bb-nse-quote"><div class="bb-empty">Enter an NSE symbol above (e.g. RELIANCE, TCS, HDFCBANK)</div></div>
+        </div>
+        <div id="bb-nse-index" style="margin-top:12px">
+          <div class="bb-section">
+            <div class="bb-section-title">📊 NIFTY 50 — Intraday</div>
+            <div id="bb-nifty-chart" style="height:240px;background:#0f172a;border-radius:6px">
+              <div class="loading-pulse" style="padding:12px">Loading NIFTY 50…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="bb-col bb-col-narrow">
+        <div class="bb-section">
+          <div class="bb-section-title">🏦 Indian Market Indices</div>
+          <div id="bb-nse-indices"><div class="loading-pulse">Loading…</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: BONDS -->
+  <div class="bb-tab-panel" id="bbpanel-bonds" style="display:none;">
+    <div class="bb-layout">
+      <div class="bb-col bb-col-wide">
+        <div id="bb-yield-curve"><div class="loading-pulse">Loading yield curve…</div></div>
+      </div>
+      <div class="bb-col bb-col-narrow">
+        <div id="bb-treasury-rates"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: MACRO -->
+  <div class="bb-tab-panel" id="bbpanel-macro" style="display:none;">
+    <div id="bb-macro-grid"><div class="loading-pulse">Loading macro data…</div></div>
+  </div>
+
+  <!-- TAB: HEATMAP -->
+  <div class="bb-tab-panel" id="bbpanel-heatmap" style="display:none;">
+    <div class="bb-section">
+      <div class="bb-section-title">🌡 US Sector Performance Heatmap (S&amp;P 500 SPDR ETFs)</div>
+      <div id="bb-sector-heatmap"><div class="loading-pulse">Loading sector data…</div></div>
+    </div>
+  </div>
+
+  <!-- TAB: SEC FILINGS -->
+  <div class="bb-tab-panel" id="bbpanel-sec" style="display:none;">
+    <div class="bb-section-title" style="padding:8px">📋 Live SEC Filings — 8-K (Material Events) · 13D (Large Positions) · Form 4 (Insider Trades)</div>
+    <div id="bb-sec-filings"><div class="loading-pulse">Loading SEC EDGAR…</div></div>
+  </div>
+</div>
+
+<div class="view-panel" id="view-threats" style="display:none;">
+  <div class="view-header">
+    <h2>🛡 Cyber Threat Intelligence</h2>
+  </div>
+  <div class="threats-grid">
+    <div class="threat-col">
+      <h3 class="threat-h3">🏴‍☠️ RANSOMWARE GROUPS</h3>
+      <div id="threats-ransomware-full"></div>
+    </div>
+    <div class="threat-col">
+      <h3 class="threat-h3">🌐 C2 BOTNET IPs</h3>
+      <div id="threats-feodo-full"></div>
+    </div>
+    <div class="threat-col">
+      <h3 class="threat-h3">🔗 MALWARE URLS</h3>
+      <div id="threats-urlhaus-full"></div>
+    </div>
+    <!-- APT Group Search Column -->
+    <div class="threat-col threat-col--apt">
+      <h3 class="threat-h3">🎯 APT GROUP INTELLIGENCE</h3>
+      <div class="apt-search-wrap">
+        <input
+          type="text"
+          id="apt-search-input"
+          class="apt-search-input"
+          placeholder="Search APT group / alias / country…"
+          oninput="filterAptGroups(this.value)"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <div id="apt-search-count" class="apt-search-count"></div>
+      </div>
+      <div id="apt-results" class="apt-results">
+        <div class="apt-loading" id="apt-loading">⏳ Loading APT intelligence from APTmap…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="view-panel" id="view-infra" style="display:none;">
+  <div class="view-header">
+    <h2>🌐 Global Infrastructure</h2>
+  </div>
+  <div class="infra-grid">
+    <div class="infra-col">
+      <h3>⚓ Strategic Chokepoints</h3>
+      <div id="infra-chokepoints"></div>
+    </div>
+    <div class="infra-col">
+      <h3>🌊 Undersea Cables</h3>
+      <div id="infra-cables"></div>
+    </div>
+    <div class="infra-col">
+      <h3>🖥 Datacenters (PeeringDB)</h3>
+      <div id="infra-datacenters"></div>
+    </div>
+    <div class="infra-col">
+      <h3>🌤 Space Weather</h3>
+      <div id="infra-spaceweather"></div>
+    </div>
+    <div class="infra-col">
+      <h3>🌡 Climate Zones</h3>
+      <div id="infra-climate"></div>
+    </div>
+  </div>
+</div>
+
+<div class="view-panel" id="view-breaches" style="display:none;">
+  <div class="view-header">
+    <h2>🔓 Live Data Breaches</h2>
+    <span class="last-updated" id="breaches-last-updated"></span>
+    <button class="btn-icon" style="margin-left:12px" onclick="renderBreachesView(true)" title="Refresh breaches">↺</button>
+  </div>
+  <div id="breaches-content">
+    <div class="loading-pulse">Loading breach data…</div>
+  </div>
+</div>
+
+<!-- ─── DETAIL MODAL ─── -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">Detail</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- ─── TOAST NOTIFICATIONS ─── -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<!-- Leaflet heatmap plugin -->
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<!-- TradingView Lightweight Charts — candlestick charting, no API key required -->
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+
+<!-- Supabase JS client (UMD) — for live breach data -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+<script src="/app.js"></script>
+
+<!-- Vercel / restricted-env: auto-hide AI panel if server signals it's disabled -->
+<script>
+(function() {
+  fetch('/api/env').then(r => r.json()).then(env => {
+    if (!env.ai_enabled) {
+      const fab   = document.getElementById('ai-fab');
+      const panel = document.getElementById('ai-floating-panel');
+      if (fab)   fab.style.display   = 'none';
+      if (panel) panel.style.display = 'none';
+    }
+    if (!env.ships_enabled) {
+      const btn = document.getElementById('layer-ships');
+      if (btn) { btn.style.opacity = '0.35'; btn.title = 'Ships unavailable on Vercel deployment'; btn.onclick = null; }
+    }
+  }).catch(() => {}); // silent fail — works fine locally without the env endpoint
+})();
+</script>
+
+<!-- ─── FLOATING AI PANEL ─── -->
+<div id="ai-fab" class="ai-fab" onclick="toggleAiPanel()" title="SoTaNik AI Analyst">
+  <span id="ai-fab-icon">🛰</span>
+</div>
+
+<div id="ai-floating-panel" class="ai-floating-panel" style="display:none;">
+  <div class="ai-fp-header">
+    <div class="ai-fp-title">
+      <span>🧠 SoTaNik <span style="color:var(--accent-blue)">AI</span> Analyst</span>
+      <span class="ai-fp-badge" id="ai-source-badge">READY</span>
+    </div>
+    <div class="ai-fp-btns">
+      <button class="ai-fp-btn" onclick="STATE.aiMessages=[];renderAiChat()" title="Clear chat">🗑</button>
+      <button class="ai-fp-btn" onclick="toggleAiPanel()" title="Close">✕</button>
+    </div>
+  </div>
+  <div class="ai-chat-messages" id="ai-chat-messages">
+    <div class="ai-msg ai-msg-assistant">
+      <div class="ai-msg-inner">
+        <span class="ai-role">🧠</span>
+        <div class="ai-text">Hello, Analyst. I am <strong>SoTaNik AI</strong> — your geopolitical intelligence assistant.<br><br>Ask me to visualise threats, track ships, monitor conflicts, investigate APT groups, or analyse any global situation. Try:<br><em>"Show ships near Suez"</em> · <em>"What is Lazarus Group?"</em> · <em>"Zoom to Taiwan Strait"</em></div>
+      </div>
+    </div>
+  </div>
+  <div class="ai-quick-btns">
+    <button class="ai-quick" onclick="aiQuick('Show active conflicts')">⚔️ Conflicts</button>
+    <button class="ai-quick" onclick="aiQuick('Track ships globally')">🚢 Ships</button>
+    <button class="ai-quick" onclick="aiQuick('Show satellites')">🛰 Satellites</button>
+    <button class="ai-quick" onclick="aiQuick('Show nuclear facilities')">☢️ Nuclear</button>
+    <button class="ai-quick" onclick="aiQuick('Show ransomware groups')">🏴‍☠️ Ransomware</button>
+    <button class="ai-quick" onclick="aiQuick('Zoom to South China Sea')">🌊 S China Sea</button>
+  </div>
+  <div class="ai-chat-input-row">
+    <input type="text" id="ai-chat-input" class="ai-input" placeholder="Ask anything — ships, threats, conflicts, regions…" autocomplete="off"/>
+    <button id="ai-chat-send" class="ai-send-btn" onclick="aiSendFromInput()">▶</button>
+  </div>
+</div>
+</body>
+</html>

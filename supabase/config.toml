@@ -1,0 +1,25 @@
+project_id = "czbfzqegmwmglahhilio"
+
+[functions.intel-chat]
+verify_jwt = false
+
+[functions.news-feed]
+verify_jwt = false
+
+[functions.ais-vessels]
+verify_jwt = false
+
+[functions.flight-tracker]
+verify_jwt = false
+
+[functions.osint-aggregator]
+verify_jwt = false
+
+[functions.tle-proxy]
+verify_jwt = false
+
+[functions.news-geo]
+verify_jwt = false
+
+[functions.send-intel-action]
+verify_jwt = false
