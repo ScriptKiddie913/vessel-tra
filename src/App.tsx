@@ -11,6 +11,8 @@ import Timeline from '@/components/Timeline'
 import CountryDashboard from '@/components/CountryDashboard'
 import ImageryPanel from '@/components/ImageryPanel'
 import LayerToggles from '@/components/LayerToggles'
+import WorldMainLayerFilters from '@/components/WorldMainLayerFilters'
+import WorldMainIntelFilters from '@/components/WorldMainIntelFilters'
 import IntelMap from '@/components/IntelMap'
 import IntelAI from '@/components/IntelAI'
 import ThreatAlerts from '@/components/ThreatAlerts'
@@ -71,17 +73,8 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<'sat' | 'ship'>('sat')
-  const [worldOverlayOpen, setWorldOverlayOpen] = useState(true)
-  const [worldOverlayMinimized, setWorldOverlayMinimized] = useState(false)
-  const [worldOverlaySrc, setWorldOverlaySrc] = useState('/world-main/static/index.html')
-
-  const worldPages = [
-    { id: 'wm-main', label: 'WORLD OPS', src: '/world-main/static/index.html' },
-    { id: 'wm-apt', label: 'APT BOARD', src: '/world-main/apt.html' },
-    { id: 'wm-malware', label: 'MALWARE', src: '/world-main/malware.html' },
-    { id: 'wm-netgraph', label: 'NETGRAPH', src: '/world-main/netgraph.html' },
-    { id: 'wm-samples', label: 'SAMPLES', src: '/world-main/samples.html' },
-  ] as const
+  const [showWorldMainLayerFilters, setShowWorldMainLayerFilters] = useState(false)
+  const [showWorldMainIntelFilters, setShowWorldMainIntelFilters] = useState(false)
 
   // Fetch TLE data via edge function proxy
   const fetchTLE = useCallback(async () => {
@@ -277,32 +270,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* World-main overlay launcher */}
-        <div className="absolute top-3 left-3 z-[1000] flex flex-col gap-1.5">
-          <button
-            onClick={() => {
-              setWorldOverlayOpen((v) => !v)
-              setWorldOverlayMinimized(false)
-            }}
-            className={`px-3 py-1.5 rounded border font-mono text-[10px] tracking-wider transition-all ${worldOverlayOpen ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300' : 'bg-gray-900/80 border-gray-700/60 text-gray-400 hover:text-gray-200 hover:border-gray-500/70'}`}
-          >
-            WORLD-MAIN OVERLAY
-          </button>
-          {worldOverlayOpen && !worldOverlayMinimized && (
-            <div className="flex flex-wrap gap-1 max-w-[280px] rounded border border-gray-700/60 bg-gray-950/85 p-1 backdrop-blur-sm">
-              {worldPages.map((page) => (
-                <button
-                  key={page.id}
-                  onClick={() => setWorldOverlaySrc(page.src)}
-                  className={`px-2 py-1 rounded border font-mono text-[9px] transition-all ${worldOverlaySrc === page.src ? 'border-cyan-500/60 bg-cyan-500/15 text-cyan-300' : 'border-gray-700/60 bg-gray-900/70 text-gray-500 hover:text-gray-300 hover:border-gray-500/70'}`}
-                >
-                  {page.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
         {/* Top right: layer toggles */}
         <div className="absolute top-3 right-3 z-[1000] flex flex-col gap-1.5">
           {[
@@ -337,11 +304,37 @@ export default function App() {
           </div>
         </div>
 
+        {/* Imported world-main controls: separate buttons */}
+        <div className="absolute top-3 right-[220px] z-[1000] flex items-center gap-1.5">
+          <button
+            onClick={() => setShowWorldMainLayerFilters((v) => !v)}
+            className={`px-2.5 py-1 rounded font-mono text-[10px] tracking-wider transition-all border ${
+              showWorldMainLayerFilters
+                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/40'
+                : 'bg-gray-900/70 text-gray-500 border-gray-700/40 hover:text-gray-300'
+            }`}
+          >
+            WM LAYERS
+          </button>
+          <button
+            onClick={() => setShowWorldMainIntelFilters((v) => !v)}
+            className={`px-2.5 py-1 rounded font-mono text-[10px] tracking-wider transition-all border ${
+              showWorldMainIntelFilters
+                ? 'bg-red-500/20 text-red-300 border-red-400/40'
+                : 'bg-gray-900/70 text-gray-500 border-gray-700/40 hover:text-gray-300'
+            }`}
+          >
+            WM INTEL
+          </button>
+        </div>
+
         {/* Overlays - positioned to not overlap */}
         <CountryDashboard />
         <TrackingHUD />
         <ImageryPanel />
         <LayerToggles />
+        {showWorldMainLayerFilters && <WorldMainLayerFilters />}
+        {showWorldMainIntelFilters && <WorldMainIntelFilters />}
         <VesselTypeFilter />
         <IntelAI />
         <ThreatAlerts />
@@ -370,42 +363,6 @@ export default function App() {
           <span className="text-gray-700">|</span>
           <span className="text-gray-600">MULTI-SOURCE OSINT</span>
         </div>
-
-        {/* World-main overlay panel: additive, does not replace existing map/features */}
-        {worldOverlayOpen && (
-          <div
-            className={`absolute z-[1003] right-3 bottom-20 border border-cyan-500/30 bg-black/80 shadow-2xl backdrop-blur-sm ${worldOverlayMinimized ? 'w-[260px]' : 'w-[48vw] max-w-[900px] min-w-[360px]'} rounded-md overflow-hidden`}
-          >
-            <div className="flex items-center justify-between px-2 py-1 border-b border-cyan-500/20 bg-cyan-950/30">
-              <div className="font-mono text-[10px] tracking-wider text-cyan-300">
-                WORLD-MAIN LIVE OVERLAY · PARALLEL MODE
-              </div>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setWorldOverlayMinimized((v) => !v)}
-                  className="px-2 py-0.5 text-[10px] rounded border border-gray-700/70 bg-gray-900/80 text-gray-300 hover:text-cyan-300"
-                >
-                  {worldOverlayMinimized ? 'EXPAND' : 'MIN'}
-                </button>
-                <button
-                  onClick={() => setWorldOverlayOpen(false)}
-                  className="px-2 py-0.5 text-[10px] rounded border border-gray-700/70 bg-gray-900/80 text-gray-300 hover:text-red-300"
-                >
-                  CLOSE
-                </button>
-              </div>
-            </div>
-            {!worldOverlayMinimized && (
-              <div className="h-[46vh] bg-black/90">
-                <iframe
-                  title="world-main-overlay"
-                  src={worldOverlaySrc}
-                  className="h-full w-full border-0"
-                />
-              </div>
-            )}
-          </div>
-        )}
 
         <Timeline />
         <div className="scan-line" />
